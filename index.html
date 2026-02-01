@@ -10,91 +10,146 @@
             color: #fff;
             font-family: 'Helvetica Neue', Arial, sans-serif;
             text-align: center;
-            padding-top: 50px;
+            padding: 20px 0;
+            /* 上下の余白 */
+            margin: 0;
+            /* スクロールを強制的に許可 */
+            overflow-y: auto;
+            min-height: 100vh;
         }
 
         h1 {
-            font-size: 2.5rem;
-            color: #ffeb3b;
-            text-shadow: 2px 2px #e60012;
+            font-size: clamp(2rem, 10vw, 4rem);
+            font-weight: 900;
+            color: #fff200;
+            /* どギツい黄色 */
+            text-transform: uppercase;
+
+            /* 重厚な袋文字とネオン発光 */
+            text-shadow:
+                3px 3px 0 #e60012,
+                -3px -3px 0 #e60012,
+                3px -3px 0 #e60012,
+                -3px 3px 0 #e60012,
+                0 0 20px #ff0000,
+                0 0 40px #ffeb3b;
+
+            /* パチンコ屋の電飾点滅アニメーション */
+            animation: neon-flicker 0.15s infinite alternate;
             margin-bottom: 30px;
+            letter-spacing: -2px;
+            font-style: italic;
+            /* 勢いを出す斜体 */
+        }
+
+        @keyframes neon-flicker {
+            0% {
+                opacity: 1;
+                transform: scale(1) skewX(-5deg);
+                filter: brightness(1.2);
+            }
+
+            100% {
+                opacity: 0.9;
+                transform: scale(1.02) skewX(-5deg);
+                filter: brightness(1.5);
+            }
         }
 
         .container {
             background: #2a2a2a;
-            display: inline-block;
-            padding: 40px;
+            /* inline-blockをやめてblockにし、中央寄せにする */
+            display: block;
+            margin: 0 auto;
+            padding: 20px;
             border-radius: 20px;
             border: 2px solid #444;
+            width: 90%;
+            max-width: 450px;
+            /* PCでの広がりすぎ防止 */
+            box-sizing: border-box;
         }
 
+        /* セレクトボックスと入力欄の調整 */
+        select,
         input {
-            font-size: 2rem;
-            width: 100px;
-            text-align: center;
+            font-size: 1.1rem;
+            width: 100%;
+            max-width: 100%;
+            /* container内に収める */
             background: #000;
             color: #0f0;
             border: 2px solid #0f0;
             border-radius: 10px;
+            margin-bottom: 15px;
+            padding: 12px;
+            box-sizing: border-box;
+            display: block;
+            /* 縦に並べる */
+            margin-left: auto;
+            margin-right: auto;
         }
 
         button {
             font-size: 1.5rem;
-            padding: 15px 30px;
+            padding: 15px;
             cursor: pointer;
             background: #e60012;
             color: #fff;
             border: none;
             border-radius: 50px;
-            margin-top: 20px;
-            transition: 0.2s;
+            margin-top: 10px;
             font-weight: bold;
+            width: 100%;
+            transition: 0.2s;
         }
 
         button:hover {
             background: #ff3344;
-            transform: scale(1.05);
+            transform: scale(1.02);
         }
 
-        #result {
-            font-size: 10rem;
-            font-weight: bold;
-            margin-top: 30px;
-            color: #fff;
-            text-shadow: 0 0 20px #e60012;
-        }
+#result {
+    /* 画面幅の50%まで巨大化を許可、最小でも6rem */
+    font-size: clamp(6rem, 50vw, 15rem); 
+    font-weight: 900;
+    font-style: italic; /* 斜体で勢いを出す */
+    margin-top: 10px;
+    line-height: 1;
+    
+    /* ど派手なネオンと袋文字 */
+    color: #fff;
+    text-shadow: 
+        0 0 10px #fff,
+        0 0 20px #ffeb3b,
+        0 0 40px #ff0000,
+        0 0 70px #ff0000;
+    
+    /* 出現時のアニメーション */
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    filter: drop-shadow(0 0 15px rgba(255, 235, 59, 0.8));
+}
 
-        .label {
-            font-size: 1.2rem;
-            margin-bottom: 10px;
-            color: #aaa;
-        }
-
-        /* プログレスバーの外枠 */
         #progress-container {
-            width: 80%;
-            max-width: 400px;
+            width: 100%;
             height: 20px;
             background: #333;
             border-radius: 10px;
-            margin: 20px auto;
+            margin: 20px 0;
             display: none;
-            /* 最初は隠しておく */
             overflow: hidden;
         }
 
-        /* 動くバー本体 */
         #progress-bar {
             width: 0%;
             height: 100%;
             background: linear-gradient(90deg, #e60012, #ffeb3b);
-            transition: width 0.1s;
         }
 
         #status-text {
             font-size: 0.9rem;
             color: #0f0;
-            height: 1.2rem;
+            min-height: 1.2rem;
             margin-top: 10px;
         }
     </style>
@@ -105,10 +160,25 @@
     <h1>最強の競馬必勝ツール</h1>
 
     <div class="container">
+        <div class="label">開催地</div>
+        <select id="place-selector" onchange="updateRaceList()">
+            <option value="">場所を選択...</option>
+            <option value="東京">東京</option>
+            <option value="中京">中京</option>
+            <option value="小倉">小倉</option>
+        </select>
+
+        <div class="label">レース名</div>
+        <select id="race-selector" onchange="syncTotal()">
+            <option value="">先に場所を選んでください</option>
+        </select>
+
         <div class="label">頭数</div>
-        <input type="number" id="total" value="16">
+        <input type="number" id="total" value="16" readonly>
+
         <br>
         <button onclick="spin()">運命を回す</button>
+
         <div id="progress-container">
             <div id="progress-bar"></div>
         </div>
@@ -125,12 +195,32 @@
             "運命のプロットを自動生成中...",
             "最終的な『態度』を決定しています..."
         ];
+
+        const venueSettings = {
+            "東京": { max: 18, min: 14 },
+            "中京": { max: 18, min: 12 },
+            "小倉": { max: 18, min: 10 }
+        };
+
+
         function spin() {
             const total = Number(document.getElementById('total').value);
             const res = document.getElementById('result');
             const pContainer = document.getElementById('progress-container');
             const pBar = document.getElementById('progress-bar');
             const sText = document.getElementById('status-text');
+            const place = document.getElementById('place-selector').value;
+            const race = document.getElementById('race-selector').value;
+
+            // 🔴 エラーチェック（場所・レース未選択）
+            if (!place || !race) {
+                res.style.fontSize = "2rem"; // エラーはあえて「しょぼく」
+                res.style.color = "#555";    // 色も死んだ感じに
+                res.style.textShadow = "none";
+                res.innerText = "選択不能";
+                sText.innerText = "⚠️ 開催地とレースを選んでください！";
+                return;
+            }
 
             // リセット
             res.innerText = "-";
@@ -183,6 +273,7 @@
                             // 完了演出
                             setTimeout(() => {
                                 res.innerText = Math.floor(Math.random() * total) + 1;
+                                res.style.transform = "scale(1.2)"; // ドンッ！と前に出る主張
                                 pContainer.style.display = "none";
                                 sText.innerText = "解析完了。これがあなたの運命です。";
                             }, 400);
@@ -194,6 +285,37 @@
             runStep();
         }
 
+
+        function updateRaceList() {
+            const place = document.getElementById('place-selector').value;
+            const raceSelector = document.getElementById('race-selector');
+
+            // クリア
+            raceSelector.innerHTML = '<option value="">レースを選択...</option>';
+
+            if (venueSettings[place]) {
+                const settings = venueSettings[place];
+
+                // 1Rから12Rまでをループで生成
+                for (let i = 1; i <= 12; i++) {
+                    // 頭数をそれっぽくバラけさせる（10〜18頭）
+                    const horses = Math.floor(Math.random() * (settings.max - settings.min + 1)) + settings.min;
+
+                    let opt = document.createElement('option');
+                    opt.value = horses;
+                    // 11Rだけ「メイン」っぽさを出す演出を入れても面白い
+                    const suffix = (i === 11) ? " (メイン)" : "";
+                    opt.text = `${i}R${suffix}`;
+
+                    raceSelector.appendChild(opt);
+                }
+            }
+        }
+
+        function syncTotal() {
+            const raceSelector = document.getElementById('race-selector');
+            document.getElementById('total').value = raceSelector.value;
+        }
     </script>
 </body>
 
