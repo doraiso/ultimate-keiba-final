@@ -1,22 +1,29 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>最強の競馬必勝ツール</title>
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
 
     <h1>最強の競馬必勝ツール</h1>
 
     <div class="container">
         <div class="label">開催地</div>
+        <!--
         <select id="place-selector" onchange="updateRaceList()">
             <option value="">場所を選択...</option>
             <option value="東京">東京</option>
             <option value="中京">中京</option>
             <option value="小倉">小倉</option>
+        </select>
+        -->
+        <select id="place-selector">
+            <option value="">読み込み中...</option>
         </select>
 
         <div class="label">レース名</div>
@@ -42,4 +49,5 @@
 
     <script src="script.js"></script>
 </body>
+
 </html>
