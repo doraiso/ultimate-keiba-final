@@ -126,7 +126,7 @@
             "最終的な『態度』を決定しています..."
         ];
         function spin() {
-            const total = document.getElementById('total').value;
+            const total = Number(document.getElementById('total').value);
             const res = document.getElementById('result');
             const pContainer = document.getElementById('progress-container');
             const pBar = document.getElementById('progress-bar');
@@ -136,32 +136,64 @@
             res.innerText = "-";
             pContainer.style.display = "block";
             pBar.style.width = "0%";
+
+            // 段階ごとの「目標%」と「滞在時間(ms)」
+            const steps = [
+                { pct: 20, msg: statusMessages[0], dur: 1200 },
+                { pct: 40, msg: statusMessages[1], dur: 800 },
+                { pct: 60, msg: statusMessages[2], dur: 600 },
+                { pct: 80, msg: statusMessages[3], dur: 900 },
+                { pct: 100, msg: statusMessages[4], dur: 1400 },
+            ];
+
+            let stepIndex = 0;
             let progress = 0;
 
-            const interval = setInterval(() => {
-                progress += Math.random() * 15; // ランダムに増やす
-                if (progress > 100) progress = 100;
+            const tickMs = 50; // バー更新の細かさ（小さいほどヌルヌル）
+            let timer = null;
 
-                pBar.style.width = progress + "%";
+            const runStep = () => {
+                const step = steps[stepIndex];
+                sText.innerText = step.msg;
 
-                // 【修正ポイント】進捗率に合わせてメッセージを選択
-                // progress(0-100) を 配列のインデックス(0-4) に変換
-                const messageIndex = Math.min(
-                    Math.floor((progress / 100) * statusMessages.length),
-                    statusMessages.length - 1
-                );
-                sText.innerText = statusMessages[messageIndex];
+                const start = progress;
+                const end = step.pct;
+                const delta = end - start;
 
-                if (progress >= 100) {
-                    clearInterval(interval);
-                    setTimeout(() => {
-                        res.innerText = Math.floor(Math.random() * total) + 1;
-                        pContainer.style.display = "none";
-                        sText.innerText = "解析完了。これがあなたの運命です。";
-                    }, 500);
-                }
-            }, 200);
+                const ticks = Math.max(1, Math.floor(step.dur / tickMs));
+                let t = 0;
+
+                clearInterval(timer);
+                timer = setInterval(() => {
+                    t++;
+                    const ratio = t / ticks;
+
+                    progress = start + delta * ratio;
+                    if (progress > end) progress = end;
+
+                    pBar.style.width = progress.toFixed(1) + "%";
+
+                    if (t >= ticks) {
+                        clearInterval(timer);
+                        stepIndex++;
+
+                        if (stepIndex < steps.length) {
+                            runStep();
+                        } else {
+                            // 完了演出
+                            setTimeout(() => {
+                                res.innerText = Math.floor(Math.random() * total) + 1;
+                                pContainer.style.display = "none";
+                                sText.innerText = "解析完了。これがあなたの運命です。";
+                            }, 400);
+                        }
+                    }
+                }, tickMs);
+            };
+
+            runStep();
         }
+
     </script>
 </body>
 
