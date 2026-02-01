@@ -70,29 +70,30 @@
             box-sizing: border-box;
         }
 
-/* 矛盾を解消！スマホ優先の巨大セレクトボックス・入力欄 */
-select,
-input {
-    /* 1.1remから一気に1.5rem〜に巨大化 */
-    font-size: clamp(1.5rem, 6vw, 2rem); 
-    width: 100%;
-    max-width: 100%;
-    background: #000;
-    color: #0f0;
-    /* 枠線を太くしてパチンコ台の役物感を出す */
-    border: 3px solid #0f0; 
-    border-radius: 10px;
-    margin-bottom: 20px;
-    /* タップしやすさを左右する高さ（パディング） */
-    padding: 15px; 
-    box-sizing: border-box;
-    display: block;
-    margin-left: auto;
-    margin-right: auto;
-    /* iOSなどで勝手にフォントが小さくなるのを防ぐ */
-    -webkit-appearance: none;
-    cursor: pointer;
-}
+        /* 矛盾を解消！スマホ優先の巨大セレクトボックス・入力欄 */
+        select,
+        input {
+            /* 1.1remから一気に1.5rem〜に巨大化 */
+            font-size: clamp(1.5rem, 6vw, 2rem);
+            width: 100%;
+            max-width: 100%;
+            background: #000;
+            color: #0f0;
+            /* 枠線を太くしてパチンコ台の役物感を出す */
+            border: 3px solid #0f0;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            /* タップしやすさを左右する高さ（パディング） */
+            padding: 15px;
+            box-sizing: border-box;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+            /* iOSなどで勝手にフォントが小さくなるのを防ぐ */
+            -webkit-appearance: none;
+            cursor: pointer;
+        }
+
         button {
             font-size: 1.5rem;
             padding: 15px;
@@ -151,35 +152,45 @@ input {
         }
 
         #status-text {
-            font-size: 0.9rem;
+            /* スマホで1.1rem、画面幅に合わせて拡大し、最大1.3rem */
+            font-size: clamp(1.1rem, 4vw, 1.3rem);
+            font-weight: bold;
+            /* 文字を太くして視認性を確保 */
             color: #0f0;
-            min-height: 1.2rem;
-            margin-top: 10px;
+            /* 領域がガタつかないよう、少し高めに確保 */
+            min-height: 1.6rem;
+            margin-top: 15px;
+            /* 少し光らせて「解析中」のサイバー感を出す */
+            text-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+            transition: all 0.3s;
         }
 
-/* 頭数ステッパー専用の調整（ボタンと並べるため） */
-.stepper {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-}
-.step-btn {
-    /* 1.5remのセレクトボックスに負けない巨大ボタン */
-    width: 80px !important;
-    height: 80px !important;
-    font-size: 2.5rem !important;
-    flex-shrink: 0; /* 潰れないように固定 */
-}
+        /* 頭数ステッパー専用の調整（ボタンと並べるため） */
+        .stepper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+        }
 
-#total {
-    /* 数字の入力欄だけ少し個別に調整 */
-    font-size: 2.5rem;
-    height: 80px;
-    max-width: 140px;
-    margin-bottom: 0; /* ステッパー内では下余白を消す */
-}
+        .step-btn {
+            /* 1.5remのセレクトボックスに負けない巨大ボタン */
+            width: 80px !important;
+            height: 80px !important;
+            font-size: 2.5rem !important;
+            flex-shrink: 0;
+            /* 潰れないように固定 */
+        }
+
+        #total {
+            /* 数字の入力欄だけ少し個別に調整 */
+            font-size: 2.5rem;
+            height: 80px;
+            max-width: 140px;
+            margin-bottom: 0;
+            /* ステッパー内では下余白を消す */
+        }
     </style>
 </head>
 
