@@ -175,3 +175,17 @@ input::-webkit-inner-spin-button {
     -webkit-appearance: none;
     margin: 0;
 }
+
+/* メインレース選択時の特別スタイル */
+select option[data-is-main="true"] {
+    font-weight: bold !important;
+    background: linear-gradient(45deg, #fff0f0, #ffeaea) !important;
+    border-left: 4px solid #ff4757 !important;
+}
+
+/* キラキラエフェクト */
+@keyframes sparkle {
+    0% { opacity: 0; transform: scale(0.5); }
+    50% { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(1.5); }
+}
