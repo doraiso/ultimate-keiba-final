@@ -152,15 +152,14 @@
         }
 
         #status-text {
-            /* スマホで1.1rem、画面幅に合わせて拡大し、最大1.3rem */
+            /* スマホでハッキリ読めるサイズに底上げ */
             font-size: clamp(1.1rem, 4vw, 1.3rem);
             font-weight: bold;
-            /* 文字を太くして視認性を確保 */
             color: #0f0;
-            /* 領域がガタつかないよう、少し高めに確保 */
+            /* 解析中の文字が切り替わっても画面がガタつかない高さを確保 */
             min-height: 1.6rem;
             margin-top: 15px;
-            /* 少し光らせて「解析中」のサイバー感を出す */
+            /* サイバーなネオン感を追加 */
             text-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
             transition: all 0.3s;
         }
@@ -190,6 +189,12 @@
             max-width: 140px;
             margin-bottom: 0;
             /* ステッパー内では下余白を消す */
+        }
+
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
         }
     </style>
 </head>
