@@ -23,8 +23,17 @@ h1 {
 }
 
 @keyframes neon-flicker {
-    0% { opacity: 1; transform: scale(1) skewX(-5deg); filter: brightness(1.2); }
-    100% { opacity: 0.9; transform: scale(1.02) skewX(-5deg); filter: brightness(1.5); }
+    0% {
+        opacity: 1;
+        transform: scale(1) skewX(-5deg);
+        filter: brightness(1.2);
+    }
+
+    100% {
+        opacity: 0.9;
+        transform: scale(1.02) skewX(-5deg);
+        filter: brightness(1.5);
+    }
 }
 
 .container {
@@ -47,7 +56,8 @@ h1 {
     text-align: left;
 }
 
-select, input {
+select,
+input {
     font-size: clamp(1.5rem, 6vw, 2rem);
     width: 100%;
     background: #000;
@@ -75,25 +85,59 @@ select, input {
     transition: 0.2s;
 }
 
-.main-btn:hover { background: #ff3344; transform: scale(1.02); }
+.main-btn:hover {
+    background: #ff3344;
+    transform: scale(1.02);
+}
 
+/* style.css */
 #result {
+    display: block;
+    /* 念のため追加 */
     font-size: clamp(6rem, 50vw, 15rem);
+    /* !importantで強制 */
     font-weight: 900;
     font-style: italic;
     margin-top: 10px;
     line-height: 1;
-    color: #fff;
-    text-shadow: 0 0 10px #fff, 0 0 20px #ffeb3b, 0 0 40px #ff0000, 0 0 70px #ff0000;
+    color: #fff200;
+    /* 最初から黄金色にする */
+    text-shadow:
+        0 0 10px #fff,
+        0 0 20px #ffeb3b,
+        0 0 40px #ff0000,
+        0 0 70px #ff0000;
     transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     filter: drop-shadow(0 0 15px rgba(255, 235, 59, 0.8));
+    text-align: center;
+    width: 100%;
+}
+
+/* エラー時の控えめなスタイル */
+#result.error-mode {
+    font-size: 2rem !important; /* 巨大化を強制解除 */
+    color: #555 !important;
+    text-shadow: none !important;
+    filter: none !important;
+    transform: scale(1) !important; /* 拡大をキャンセル */
+    margin-top: 20px;
 }
 
 #progress-container {
-    width: 100%; height: 20px; background: #333; border-radius: 10px; margin: 20px 0; display: none; overflow: hidden;
+    width: 100%;
+    height: 20px;
+    background: #333;
+    border-radius: 10px;
+    margin: 20px 0;
+    display: none;
+    overflow: hidden;
 }
 
-#progress-bar { width: 0%; height: 100%; background: linear-gradient(90deg, #e60012, #ffeb3b); }
+#progress-bar {
+    width: 0%;
+    height: 100%;
+    background: linear-gradient(90deg, #e60012, #ffeb3b);
+}
 
 #status-text {
     font-size: clamp(1.1rem, 4vw, 1.3rem);
@@ -104,7 +148,30 @@ select, input {
     text-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
 }
 
-.stepper { display: flex; justify-content: center; align-items: center; gap: 10px; width: 100%; }
-.step-btn { width: 80px !important; height: 80px !important; font-size: 2.5rem !important; flex-shrink: 0; }
-#total { font-size: 2.5rem; height: 80px; max-width: 140px; margin-bottom: 0; }
-input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.stepper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.step-btn {
+    width: 80px !important;
+    height: 80px !important;
+    font-size: 2.5rem !important;
+    flex-shrink: 0;
+}
+
+#total {
+    font-size: 2.5rem;
+    height: 80px;
+    max-width: 140px;
+    margin-bottom: 0;
+}
+
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}

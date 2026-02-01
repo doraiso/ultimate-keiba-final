@@ -94,6 +94,7 @@ function showFinalResult(total) {
     setTimeout(() => {
         const luckyNumber = Math.floor(Math.random() * total) + 1;
         res.innerText = luckyNumber;
+        res.style.fontSize = ""; // CSSのclamp設定を優先させるために空にする
         res.style.color = "#fff200";
         res.style.transform = "scale(1.3) rotate(-5deg)";
         document.getElementById('progress-container').style.display = "none";
@@ -125,4 +126,39 @@ function changeTotal(n) {
     const input = document.getElementById('total');
     let val = parseInt(input.value) + n;
     input.value = Math.min(18, Math.max(2, val));
+}
+
+/* script.js */
+
+/**
+ * 表示の初期化（エラーモードを解除する）
+ */
+function resetDisplay() {
+    const res = document.getElementById('result');
+    const pContainer = document.getElementById('progress-container');
+    const pBar = document.getElementById('progress-bar');
+
+    // エラークラスを外して元の巨大スタイルに戻す準備
+    res.classList.remove('error-mode');
+    
+    res.innerText = "-";
+    res.style.transform = "scale(0.5)"; 
+    pContainer.style.display = "block";
+    pBar.style.width = "0%";
+}
+
+/**
+ * エラー表示（エラーモードを適用する）
+ */
+function showError(message) {
+    const res = document.getElementById('result');
+    const sText = document.getElementById('status-text');
+    const pContainer = document.getElementById('progress-container');
+
+    // エラー専用の控えめなクラスを付与
+    res.classList.add('error-mode');
+    
+    res.innerText = "選択不能";
+    sText.innerText = message;
+    pContainer.style.display = "none";
 }
