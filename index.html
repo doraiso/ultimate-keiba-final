@@ -109,26 +109,27 @@
             transform: scale(1.02);
         }
 
-#result {
-    /* 画面幅の50%まで巨大化を許可、最小でも6rem */
-    font-size: clamp(6rem, 50vw, 15rem); 
-    font-weight: 900;
-    font-style: italic; /* 斜体で勢いを出す */
-    margin-top: 10px;
-    line-height: 1;
-    
-    /* ど派手なネオンと袋文字 */
-    color: #fff;
-    text-shadow: 
-        0 0 10px #fff,
-        0 0 20px #ffeb3b,
-        0 0 40px #ff0000,
-        0 0 70px #ff0000;
-    
-    /* 出現時のアニメーション */
-    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    filter: drop-shadow(0 0 15px rgba(255, 235, 59, 0.8));
-}
+        #result {
+            /* 画面幅の50%まで巨大化を許可、最小でも6rem */
+            font-size: clamp(6rem, 50vw, 15rem);
+            font-weight: 900;
+            font-style: italic;
+            /* 斜体で勢いを出す */
+            margin-top: 10px;
+            line-height: 1;
+
+            /* ど派手なネオンと袋文字 */
+            color: #fff;
+            text-shadow:
+                0 0 10px #fff,
+                0 0 20px #ffeb3b,
+                0 0 40px #ff0000,
+                0 0 70px #ff0000;
+
+            /* 出現時のアニメーション */
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            filter: drop-shadow(0 0 15px rgba(255, 235, 59, 0.8));
+        }
 
         #progress-container {
             width: 100%;
@@ -152,6 +153,32 @@
             min-height: 1.2rem;
             margin-top: 10px;
         }
+
+        .stepper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .step-btn {
+            width: 60px !important;
+            /* 押しやすさ重視 */
+            height: 60px;
+            margin: 0 !important;
+            font-size: 1.5rem;
+            background: #444 !important;
+            border: 2px solid #0f0 !important;
+            border-radius: 10px !important;
+        }
+
+        #total {
+            flex: 1;
+            max-width: 120px;
+            margin: 0;
+            font-size: 2rem;
+        }
     </style>
 </head>
 
@@ -174,7 +201,11 @@
         </select>
 
         <div class="label">頭数</div>
-        <input type="number" id="total" value="16" readonly>
+        <div class="stepper">
+            <button type="button" class="step-btn" onclick="changeTotal(-1)">－</button>
+            <input type="number" id="total" value="16" readonly>
+            <button type="button" class="step-btn" onclick="changeTotal(1)">＋</button>
+        </div>
 
         <br>
         <button onclick="spin()">運命を回す</button>
@@ -212,15 +243,29 @@
             const place = document.getElementById('place-selector').value;
             const race = document.getElementById('race-selector').value;
 
-            // 🔴 エラーチェック（場所・レース未選択）
+            // 🟢 1. 成功時の「派手なスタイル」をまずセット（初期化）
+            res.innerText = "-";
+            res.style.fontSize = ""; // CSS(clamp)の設定を有効化
+            res.style.color = "#fff"; // 白に戻す
+            res.style.textShadow = "0 0 10px #fff, 0 0 20px #ffeb3b, 0 0 40px #ff0000, 0 0 70px #ff0000";
+            res.style.transform = "scale(1)"; // サイズを戻す
+            res.style.filter = "drop-shadow(0 0 15px rgba(255, 235, 59, 0.8))";
+
+            // 🔴 2. エラーチェック：未選択なら上書きして中断
             if (!place || !race) {
-                res.style.fontSize = "2rem"; // エラーはあえて「しょぼく」
-                res.style.color = "#555";    // 色も死んだ感じに
-                res.style.textShadow = "none";
                 res.innerText = "選択不能";
+                res.style.fontSize = "1.5rem"; // ここで「ショボく」する
+                res.style.color = "#555";
+                res.style.textShadow = "none";
+                res.style.filter = "none";
                 sText.innerText = "⚠️ 開催地とレースを選んでください！";
                 return;
             }
+
+            // 🟢 3. 演出開始
+            res.style.transform = "scale(0.5)"; // 溜め演出のために一度小さく
+            pContainer.style.display = "block";
+            pBar.style.width = "0%";
 
             // リセット
             res.innerText = "-";
@@ -271,11 +316,22 @@
                             runStep();
                         } else {
                             // 完了演出
+                            // 完了演出のところ
                             setTimeout(() => {
-                                res.innerText = Math.floor(Math.random() * total) + 1;
-                                res.style.transform = "scale(1.2)"; // ドンッ！と前に出る主張
+                                const luckyNumber = Math.floor(Math.random() * total) + 1;
+                                res.innerText = luckyNumber;
+
+                                // 💥 衝撃の「確定」スタイル
+                                res.style.color = "#fff200"; // 黄金色
+                                res.style.transform = "scale(1.3) rotate(-5deg)"; // 巨大化して傾ける
+
                                 pContainer.style.display = "none";
-                                sText.innerText = "解析完了。これがあなたの運命です。";
+                                sText.innerHTML = "<span style='color:#ffeb3b; font-weight:bold; font-size:1.5rem; text-shadow:0 0 10px #f00;'>【 確 定 】</span>";
+
+                                // バウンド演出
+                                setTimeout(() => {
+                                    res.style.transform = "scale(1.1) rotate(-5deg)";
+                                }, 150);
                             }, 400);
                         }
                     }
@@ -315,6 +371,15 @@
         function syncTotal() {
             const raceSelector = document.getElementById('race-selector');
             document.getElementById('total').value = raceSelector.value;
+        }
+
+        function changeTotal(n) {
+            const input = document.getElementById('total');
+            let val = parseInt(input.value) + n;
+            // 競馬のルール上、2頭〜18頭の範囲に制限
+            if (val < 2) val = 2;
+            if (val > 18) val = 18;
+            input.value = val;
         }
     </script>
 </body>
