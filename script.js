@@ -57,12 +57,13 @@ const fallbackMainRaces = {
 
 async function getMainRaceNameFromICS(venue) {
     try {
-        const response = await fetch('data/jrarace2026.ics');
+        const currentYear = new Date().getFullYear();
+        const response = await fetch(`data/jrarace${currentYear}.ics`);
         if (!response.ok) throw new Error('ICSファイルなし');
 
         const icsText = await response.text();
         const today = new Date();
-        const currentYear = today.getFullYear();
+        // const currentYear = today.getFullYear();
         const currentMonth = String(today.getMonth() + 1).padStart(2, '0');
 
         console.log(`=== ${venue}のメインレース検索 (${currentYear}年${currentMonth}月) ===`);
@@ -76,63 +77,70 @@ async function getMainRaceNameFromICS(venue) {
             // 日付取得
             const dateMatch = event.match(/DTSTART;VALUE=DATE:(\d{8})/);
             if (!dateMatch) continue;
-            
+
             const eventDateStr = dateMatch[1];
-            
+
             // 現在日以降かチェック
             if (!isFutureOrToday(eventDateStr)) {
                 continue;
             }
-            
+
             // 年月チェック
             const eventYear = eventDateStr.substring(0, 4);
             const eventMonth = eventDateStr.substring(4, 6);
-            
+
             if (eventYear !== String(currentYear) || eventMonth !== currentMonth) {
                 continue;
             }
-            
+
             // サマリー取得
             const summaryMatch = event.match(/SUMMARY:(.+?)\r?\n/);
             if (!summaryMatch) continue;
-            
+
             const summary = summaryMatch[1].trim();
-            
+
             // ロケーション取得
             const locationMatch = event.match(/LOCATION:(.+?)\r?\n/);
             const location = locationMatch ? locationMatch[1].trim() : '';
-            
+
             // 開催地チェック（より寛容に）
-            const isVenueEvent = 
-                location.includes(venue) || 
+            const isVenueEvent =
+                location.includes(venue) ||
                 summary.includes(venue) ||
                 (venue === '京都' && location.includes('Kyoto')) ||
                 (venue === '東京' && location.includes('Tokyo')) ||
                 (venue === '阪神' && location.includes('Hanshin'));
-            
+
             if (isVenueEvent) {
                 console.log(`  発見: ${eventDateStr} - ${summary}`);
                 console.log(`    ロケーション: ${location}`);
-                
+
                 // グレードレースかチェック（改良版）
                 if (isGradeRace(event, summary)) {
                     console.log(`    ✓ グレードレース判定: true`);
-                    
+
                     const raceName = extractRaceNameFromICS(summary, venue);
-                    
+
                     if (raceName && raceName.length > 1) {
                         console.log(`    ✓ レース名抽出: ${raceName}`);
-                        
+
                         // グレードを取得（表示用）
                         let grade = 'G?';
-                        if (event.includes('G1') || event.includes('GI') || summary.includes('(G1)') || summary.includes('(GI)')) {
-                            grade = 'GI';
+
+                        if (event.includes('GIII') || summary.includes('(GIII)')) {
+                            grade = 'GIII';
                         } else if (event.includes('GII') || summary.includes('(GII)')) {
                             grade = 'GII';
-                        } else if (event.includes('GIII') || summary.includes('(GIII)')) {
-                            grade = 'GIII';
+                        } else if (
+                            event.includes('G1') ||
+                            event.includes('GI') ||
+                            summary.includes('(G1)') ||
+                            summary.includes('(GI)')
+                        ) {
+                            grade = 'GI';
                         }
-                        
+
+
                         foundRaces.push({
                             name: raceName,
                             date: eventDateStr,
@@ -152,22 +160,22 @@ async function getMainRaceNameFromICS(venue) {
 
         console.log(`\n=== 検索結果 ===`);
         console.log(`見つかったレース数: ${foundRaces.length}`);
-        
+
         if (foundRaces.length > 0) {
             foundRaces.forEach((race, i) => {
-                console.log(`${i+1}. ${race.date}: ${race.name} (${race.grade}) - ${race.summary}`);
+                console.log(`${i + 1}. ${race.date}: ${race.name} (${race.grade}) - ${race.summary}`);
             });
-            
+
             // 日付順にソート（最も近い未来）
             foundRaces.sort((a, b) => a.date.localeCompare(b.date));
-            
+
             const selectedRace = foundRaces[0];
             const daysUntil = calculateDaysUntil(selectedRace.date);
-            
+
             console.log(`\n✓ 選択レース: ${selectedRace.name} (${selectedRace.grade})`);
             console.log(`  開催日: ${selectedRace.date} (あと${daysUntil}日)`);
             console.log(`  完全名: ${selectedRace.summary}`);
-            
+
             return {
                 name: selectedRace.name,
                 date: selectedRace.date,
@@ -189,14 +197,14 @@ async function getMainRaceNameFromICS(venue) {
 // ICS用の特別なレース名抽出
 function extractRaceNameFromICS(summary, venue) {
     console.log(`  ICS抽出: "${summary}"`);
-    
+
     // 1. 括弧内のグレード表記を除去
     let raceName = summary
         .replace(/\(G[Ⅰ-Ⅲ1-3]\)/g, '')
         .replace(/（G[Ⅰ-Ⅲ1-3]）/g, '')
         .replace(/\(J・G[Ⅰ-Ⅲ1-3]\)/g, '')
         .replace(/（J・G[Ⅰ-Ⅲ1-3]）/g, '');
-    
+
     // 2. 開催地名を除去（ただし「東京新聞杯」のようなものは保持）
     // まず開催地名で始まる場合をチェック
     if (raceName.startsWith(venue)) {
@@ -210,13 +218,13 @@ function extractRaceNameFromICS(summary, venue) {
             raceName = raceName.replace(new RegExp(`^${venue}\\s*`), '');
         }
     }
-    
+
     // 3. 余分な空白と記号を除去
     raceName = raceName
         .replace(/\s+/g, ' ')
         .replace(/^\s+|\s+$/g, '')
         .replace(/^[:\-]\s*|\s*[:\-]$/g, '');
-    
+
     console.log(`    結果: "${raceName}"`);
     return raceName;
 }
@@ -416,14 +424,14 @@ async function updateRaceList(place) {
                     const daysText = raceInfo.daysUntil > 0 ?
                         ` (あと${raceInfo.daysUntil}日)` :
                         ` (今日開催)`;
-                    
+
                     const gradeText = raceInfo.grade ? ` [${raceInfo.grade}]` : '';
-                    
+
                     option.text = `11R 🏆 ${raceInfo.name}${gradeText}${daysText}`;
                     option.style.fontWeight = 'bold';
-                    option.style.color = raceInfo.grade === 'GI' ? '#ff4757' : 
-                                       raceInfo.grade === 'GII' ? '#ffa502' : 
-                                       raceInfo.grade === 'GIII' ? '#2ed573' : '#e74c3c';
+                    option.style.color = raceInfo.grade === 'GI' ? '#ff4757' :
+                        raceInfo.grade === 'GII' ? '#ffa502' :
+                            raceInfo.grade === 'GIII' ? '#2ed573' : '#e74c3c';
                     option.dataset.isMain = 'true';
                     option.dataset.raceName = raceInfo.name;
                     option.dataset.raceDate = raceInfo.date;
@@ -454,22 +462,25 @@ function spin() {
     const place = document.getElementById('place-selector').value;
     const raceSelect = document.getElementById('race-selector');
     const race = raceSelect.value;
-    const selectedOption = raceSelect.options[raceSelect.selectedIndex];
-
-    resetDisplay();
 
     if (!place || !race) {
+        resetDisplay();
         showError("⚠️ 開催地とレースを選んでください！");
         return;
     }
 
+    const selectedOption = raceSelect.options[raceSelect.selectedIndex];
     const isMainRace = selectedOption.dataset.isMain === 'true';
     const mainRaceName = selectedOption.dataset.raceName || "メインレース";
+    const grade = selectedOption.dataset.grade || "G?";
+
+    resetDisplay();
 
     runProgressAnimation(() => {
-        showFinalResult(total, isMainRace, mainRaceName);
+        showFinalResult(total, isMainRace, mainRaceName, grade);
     });
 }
+
 
 function resetDisplay() {
     const res = document.getElementById('result');
@@ -539,7 +550,7 @@ function runProgressAnimation(callback) {
     runStep();
 }
 
-function showFinalResult(total, isMainRace, mainRaceName) {
+function showFinalResult(total, isMainRace, mainRaceName, grade = "G?") {
     const res = document.getElementById('result');
     const sText = document.getElementById('status-text');
 
@@ -557,7 +568,7 @@ function showFinalResult(total, isMainRace, mainRaceName) {
                     🏆 ${mainRaceName} 🏆
                 </div>
                 <span style="color:#ff4757; font-weight:bold; font-size:1.5rem;">
-                    【 GI 勝 利 馬 番 】
+                    【 ${grade} 勝 利 馬 番 】
                 </span>
             `;
 
@@ -590,7 +601,8 @@ function changeTotal(n) {
 
 async function debugICS() {
     try {
-        const response = await fetch('data/jrarace2026.ics');
+        const currentYear = new Date().getFullYear();
+        const response = await fetch(`data/jrarace${currentYear}.ics`);
         const icsText = await response.text();
 
         console.log('=== ICSファイル内容サンプル ===');
@@ -670,7 +682,8 @@ debugCurrentDate();
 
 async function debugICSDateFormats() {
     try {
-        const response = await fetch('data/jrarace2026.ics');
+        const currentYear = new Date().getFullYear();
+        const response = await fetch(`data/jrarace${currentYear}.ics`);
         const icsText = await response.text();
 
         console.log('=== ICS日付フォーマット確認 ===');
@@ -986,7 +999,7 @@ function extractRaceNameForKnownPatterns(summary, venue) {
 
 function extractRaceNameIntelligent(summary, venue) {
     console.log(`インテリジェント抽出: "${summary}" (開催地: ${venue})`);
-    
+
     // 1. 既知のパターンから抽出
     const knownPatterns = [
         { pattern: /東京競馬\s+東京新聞杯\s*\(GIII\)/i, extract: "東京新聞杯" },
@@ -1000,62 +1013,62 @@ function extractRaceNameIntelligent(summary, venue) {
         { pattern: /阪神競馬\s+宝塚記念\s*\(G1\)/i, extract: "宝塚記念" },
         { pattern: /阪神\s+大阪杯\s*\(GII\)/i, extract: "大阪杯" }
     ];
-    
+
     for (const known of knownPatterns) {
         if (known.pattern.test(summary)) {
             console.log(`  既知パターンマッチ: "${known.extract}"`);
             return known.extract;
         }
     }
-    
+
     // 2. 改善されたパターン
     const patterns = [
         // パターン1: "東京競馬 東京新聞杯 (GIII)"
         new RegExp(`${venue}競馬\\s+(.+?)(?:\\s*\\(G[Ⅰ-Ⅲ1-3]\\))?$`, 'i'),
-        
+
         // パターン2: "東京 東京新聞杯 (GIII)" - 開催地とレース名の間に空白
         new RegExp(`${venue}\\s+(.+?)(?:\\s*\\(G[Ⅰ-Ⅲ1-3]\\))?$`, 'i'),
-        
+
         // パターン3: "東京新聞杯 (GIII)" - 開催地名がレース名の一部の場合
         // 注意: このパターンは「東京新聞杯」のようなレース名の場合に誤動作する
         // new RegExp(`${venue}(.+?)(?:\\s*\\(G[Ⅰ-Ⅲ1-3]\\))?$`, 'i'), // ← 問題のあるパターン
-        
+
         // パターン4: "競馬 フェブラリーステークス (G1)"
         /競馬\s+(.+?)(?:\s*\(G[Ⅰ-Ⅲ1-3]\))?$/,
-        
+
         // パターン5: "東京新聞杯(GIII) 東京競馬"
         new RegExp(`(.+?)(?:\\s*\\(G[Ⅰ-Ⅲ1-3]\\))?\\s+${venue}競馬$`, 'i'),
-        
+
         // パターン6: "東京新聞杯 (GIII) 東京競馬"
         new RegExp(`(.+?)(?:\\s*\\(G[Ⅰ-Ⅲ1-3]\\))?\\s+${venue}競馬$`, 'i'),
-        
+
         // パターン7: 開催地名で始まり、その後にレース名が続くが、開催地名がレース名の一部の場合の特別処理
         new RegExp(`(${venue}[^\\s(]+)(?:\\s*\\(G[Ⅰ-Ⅲ1-3]\\))?`, 'i')
     ];
-    
+
     for (let i = 0; i < patterns.length; i++) {
         const match = summary.match(patterns[i]);
         if (match && match[1]) {
             let extracted = match[1].trim();
             console.log(`  パターン${i + 1}マッチ: "${extracted}"`);
-            
+
             // クリーンアップ
             extracted = cleanRaceName(extracted, venue);
-            
+
             // 抽出結果が開催地のみ（例: "東京"）の場合や短すぎる場合はスキップ
             if (extracted === venue || extracted.length < 2) {
                 console.log(`  抽出結果が不適切: "${extracted}"、次のパターンを試します`);
                 continue;
             }
-            
+
             return extracted;
         }
     }
-    
+
     // 3. キーワード抽出
     console.log('  パターンマッチせず、キーワード抽出を試みる');
     const raceName = extractRaceNameByKeywords(summary, venue);
-    
+
     return raceName;
 }
 
@@ -1067,7 +1080,7 @@ function cleanRaceName(name, venue) {
         .replace(/\s+/g, ' ')                   // 連続する空白を1つに
         .replace(/^\s+|\s+$/g, '')              // 前後の空白を除去
         .replace(/^[:\-\s]+|[:\-\s]+$/g, '');   // 前後の記号を除去
-    
+
     // 開催地名が先頭にある場合は保持（例: "東京新聞杯"）
     // ただし、開催地名のみの場合は除去
     if (cleaned.startsWith(venue) && cleaned !== venue) {
@@ -1076,10 +1089,10 @@ function cleanRaceName(name, venue) {
     } else if (cleaned.includes(venue + ' ') || cleaned.includes(' ' + venue)) {
         // 開催地名が単独で含まれる場合は除去
         cleaned = cleaned.replace(new RegExp(`\\b${venue}\\b`, 'g'), '')
-                         .replace(/\s+/g, ' ')
-                         .trim();
+            .replace(/\s+/g, ' ')
+            .trim();
     }
-    
+
     return cleaned;
 }
 
@@ -1088,53 +1101,53 @@ function extractRaceNameByKeywords(summary, venue) {
         'ステークス', '記念', 'カップ', '賞', '杯', 'ハンデキャップ',
         'クラシック', 'グランプリ', 'プレート', 'タイトル'
     ];
-    
+
     // 単語に分割
     const words = summary.split(/\s+/);
-    
+
     // キーワードを含む単語を探す
     for (const word of words) {
         if (word === venue || word === '競馬' || word === '競馬場') {
             continue;
         }
-        
+
         for (const keyword of keywords) {
             if (word.includes(keyword)) {
                 let cleaned = word
                     .replace(/\(G[Ⅰ-Ⅲ1-3]\)/g, '')
                     .replace(/\(.*\)/g, '');
-                
+
                 // 開催地名がレース名の一部かチェック
                 if (word.includes(venue) && word !== venue) {
                     // "東京新聞杯" のようなパターン
                     console.log(`  キーワード抽出（開催地名含む）: "${word}" -> "${cleaned}"`);
                     return cleaned;
                 }
-                
+
                 console.log(`  キーワード抽出: "${cleaned}"`);
                 return cleaned;
             }
         }
     }
-    
+
     // 最も長い単語を探す
     let longestWord = '';
     for (const word of words) {
-        if (word.length > longestWord.length && 
-            !word.includes('G') && 
-            word !== venue && 
-            word !== '競馬' && 
+        if (word.length > longestWord.length &&
+            !word.includes('G') &&
+            word !== venue &&
+            word !== '競馬' &&
             word !== '競馬場') {
             longestWord = word;
         }
     }
-    
+
     if (longestWord) {
         const cleaned = longestWord.replace(/\(.*\)/g, '');
         console.log(`  最長単語抽出: "${cleaned}"`);
         return cleaned;
     }
-    
+
     // 完全フォールバック
     console.log(`  完全フォールバック: "${summary}"`);
     return summary.replace(venue, '').replace('競馬', '').trim();
@@ -1224,17 +1237,17 @@ function testExtraction() {
         { input: "京都競馬 桜花賞 G1", venue: "京都", expected: "桜花賞" },
         { input: "阪神競馬 宝塚記念 (GI)", venue: "阪神", expected: "宝塚記念" },
     ];
-    
+
     console.log('=== レース名抽出完全テスト ===');
     testCases.forEach((test, i) => {
-        console.log(`\nテスト ${i+1}:`);
+        console.log(`\nテスト ${i + 1}:`);
         console.log(`  入力: "${test.input}"`);
         console.log(`  開催地: ${test.venue}`);
         const result = extractRaceNameIntelligent(test.input, test.venue);
         console.log(`  結果: "${result}"`);
         console.log(`  期待: "${test.expected}"`);
         console.log(`  一致: ${result === test.expected ? '✓' : '✗'}`);
-        
+
         if (result !== test.expected) {
             console.log(`  差分分析:`);
             console.log(`    結果長さ: ${result.length}`);
@@ -1248,11 +1261,11 @@ testExtraction();
 
 async function testVenueRaces() {
     const venues = ['東京', '京都', '中山', '阪神'];
-    
+
     for (const venue of venues) {
         console.log(`\n\n=== ${venue}のレーステスト ===`);
         await debugICSForVenue(venue);
-        
+
         const raceInfo = await getMainRaceNameFromICS(venue);
         console.log(`\n最終選択: ${raceInfo.name} (${raceInfo.grade})`);
     }
@@ -1330,40 +1343,41 @@ function displayRaceDebugInfo(raceInfo) {
 
 async function debugICSForVenue(venue) {
     try {
-        const response = await fetch('data/jrarace2026.ics');
+        const currentYear = new Date().getFullYear();
+        const response = await fetch(`data/jrarace${currentYear}.ics`);
         const icsText = await response.text();
-        
+
         console.log(`=== ${venue}のICSイベント分析 ===`);
-        
+
         const events = icsText.split('BEGIN:VEVENT');
         const today = new Date();
-        const currentYear = today.getFullYear();
+        // const currentYear = today.getFullYear();
         const currentMonth = String(today.getMonth() + 1).padStart(2, '0');
-        
+
         events.forEach((event, index) => {
             // 日付取得
             const dateMatch = event.match(/DTSTART;VALUE=DATE:(\d{8})/);
             if (!dateMatch) return;
-            
+
             const eventDateStr = dateMatch[1];
             const eventYear = eventDateStr.substring(0, 4);
             const eventMonth = eventDateStr.substring(4, 6);
-            
+
             // 今月のイベントのみ
             if (eventYear !== String(currentYear) || eventMonth !== currentMonth) {
                 return;
             }
-            
+
             // サマリー取得
             const summaryMatch = event.match(/SUMMARY:(.+?)\r?\n/);
             if (!summaryMatch) return;
-            
+
             const summary = summaryMatch[1].trim();
-            
+
             // 開催地チェック
             const locationMatch = event.match(/LOCATION:(.+?)\r?\n/);
             const location = locationMatch ? locationMatch[1].trim() : '';
-            
+
             if (location.includes(venue) || summary.includes(venue)) {
                 console.log(`${eventDateStr}: ${summary}`);
                 console.log(`  ロケーション: ${location}`);
@@ -1373,7 +1387,7 @@ async function debugICSForVenue(venue) {
                 console.log(`  G3/GIII: ${event.includes('GIII') ? 'あり' : 'なし'}`);
             }
         });
-        
+
     } catch (error) {
         console.log('デバッグ失敗:', error);
     }
@@ -1381,7 +1395,7 @@ async function debugICSForVenue(venue) {
 
 function isGradeRace(event, summary) {
     // G表記のチェック（より包括的に）
-    const hasGradeNotation = 
+    const hasGradeNotation =
         event.includes('G1') || event.includes('GI') ||
         event.includes('G2') || event.includes('GII') ||
         event.includes('G3') || event.includes('GIII') ||
@@ -1390,16 +1404,16 @@ function isGradeRace(event, summary) {
         summary.includes('(GII)') || summary.includes('(GIII)') ||
         summary.includes('（G1）') || summary.includes('（GI）') ||
         summary.includes('（GII）') || summary.includes('（GIII）');
-    
+
     // 主要なレース名パターン
-    const isMajorRace = 
+    const isMajorRace =
         summary.includes('ステークス') ||
         summary.includes('記念') ||
         summary.includes('カップ') ||
         summary.includes('賞') ||
         summary.includes('杯') ||
         summary.includes('ハンデキャップ');
-    
+
     // グレード表記があるか、主要なレース名パターンがある場合
     return hasGradeNotation || isMajorRace;
 }
