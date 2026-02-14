@@ -231,3 +231,32 @@ button.disabled {
 }
 
 
+#minus-btn, #plus-btn {
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#minus-btn,
+#plus-btn {
+  width: 64px;
+  height: 64px;
+  font-size: 1.8rem;
+  font-weight: 800;
+  border-radius: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  background: linear-gradient(145deg, #1a1a1a, #111);
+  border: 2px solid #333;
+  color: #fff;
+
+  transition: transform 0.08s ease, box-shadow 0.1s ease;
+}
+
+#minus-btn:active,
+#plus-btn:active {
+  transform: scale(0.92);
+  box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
+}

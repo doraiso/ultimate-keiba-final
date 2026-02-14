@@ -1594,3 +1594,58 @@ document.addEventListener('DOMContentLoaded', () => {
 
     updateSpinButtonState();
 });
+
+function setupHoldRepeat(buttonEl, step) {
+  let timer = null;
+  let interval = 140; // 最初はゆっくり
+  let pressCount = 0;
+
+  const tick = () => {
+    // ここで頭数を動かす（あなたの既存関数に合わせて）
+    changeTotal(step);           // ← 既存がこれならこれ
+    // syncTotal();              // ← 必要ならここで同期
+
+    pressCount++;
+    // 押し続けたら加速（ほどほど）
+    if (pressCount === 8) interval = 90;
+    if (pressCount === 20) interval = 60;
+
+    timer = setTimeout(tick, interval);
+  };
+
+  const start = (e) => {
+    e.preventDefault();
+    if (timer) return;
+    interval = 140;
+    pressCount = 0;
+
+    // 1回目は即反映
+    tick();
+  };
+
+  const stop = () => {
+    if (!timer) return;
+    clearTimeout(timer);
+    timer = null;
+
+    // 離した瞬間に「確定」させたい処理があればここ
+    // updateSpinButtonState(); // ボタン制御があるなら
+  };
+
+  // スマホ優先（pointerが一番安定）
+  buttonEl.addEventListener('pointerdown', start, { passive: false });
+  buttonEl.addEventListener('pointerup', stop);
+  buttonEl.addEventListener('pointercancel', stop);
+  buttonEl.addEventListener('pointerleave', stop);
+
+  // 長押し中のコンテキストメニュー抑止（Android/一部ブラウザ）
+  buttonEl.addEventListener('contextmenu', (e) => e.preventDefault());
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const minus = document.getElementById('minus-btn');
+  const plus = document.getElementById('plus-btn');
+  if (minus) setupHoldRepeat(minus, -1);
+  if (plus) setupHoldRepeat(plus, +1);
+});
+

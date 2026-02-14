@@ -33,9 +33,10 @@
 
         <div class="label">頭数</div>
         <div class="stepper">
-            <button type="button" class="step-btn" onclick="changeTotal(-1)">－</button>
-            <input type="number" id="total" value="16" readonly>
-            <button type="button" class="step-btn" onclick="changeTotal(1)">＋</button>
+            <button id="minus-btn" type="button">−</button>
+            <input type="number" id="total" value="10" readonly>
+            <button id="plus-btn" type="button">＋</button>
+
         </div>
 
         <button class="main-btn" onclick="spin()">運命を回す</button>
