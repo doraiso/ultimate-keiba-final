@@ -429,12 +429,7 @@ async function updateRaceList(place) {
                     option.dataset.raceDate = raceInfo.date;
                     option.dataset.grade = raceInfo.grade || 'G?';
                 } else {
-                    const normalRaces = [
-                        "2歳新馬", "3歳未勝利", "1600万下", "1000万下",
-                        "オープン特別", "3勝クラス", "2勝クラス",
-                        "1勝クラス", "準重賞", "GIII", "", "ダート重賞"
-                    ];
-                    option.text = `${i}R ${normalRaces[i - 1] || "特別戦"}`;
+                    option.text = `${i}R`;
                     option.dataset.isMain = 'false';
                 }
 
@@ -486,6 +481,8 @@ function resetDisplay() {
     res.style.transform = "scale(0.5)";
     res.style.color = "";
     res.style.textShadow = "";
+    // ★ これを追加
+    res.style.fontSize = "";
     pContainer.style.display = "block";
     pBar.style.width = "0%";
 }
@@ -553,7 +550,7 @@ function showFinalResult(total, isMainRace, mainRaceName) {
         if (isMainRace) {
             res.style.color = "#ff4757";
             res.style.textShadow = "0 0 20px #ff4757";
-            res.style.fontSize = "clamp(4rem, 10vw, 8rem)";
+            //res.style.fontSize = "clamp(4rem, 10vw, 8rem)";
 
             sText.innerHTML = `
                 <div style="color:#ff4757; font-weight:bold; font-size:1.2rem; margin-bottom:5px;">
