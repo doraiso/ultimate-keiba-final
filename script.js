@@ -582,17 +582,25 @@ function resetDisplay() {
     const res = document.getElementById('result');
     const pContainer = document.getElementById('progress-container');
     const pBar = document.getElementById('progress-bar');
+    const glow = document.querySelector('.result-glow');
 
     res.classList.remove('error-mode');
     res.innerText = "-";
     res.style.transform = "scale(0.5)";
     res.style.color = "";
     res.style.textShadow = "";
-    // ★ これを追加
     res.style.fontSize = "";
+
     pContainer.style.display = "block";
     pBar.style.width = "0%";
+
+    // 追加：初期は光らせない
+   if (glow) glow.classList.remove('active');
+res.classList.remove('result-normal');
+res.classList.remove('result-grade');
+
 }
+
 
 function showError(message) {
     const res = document.getElementById('result');
@@ -647,43 +655,48 @@ function runProgressAnimation(callback) {
 }
 
 function showFinalResult(total, isMainRace, mainRaceName, grade = "G?") {
-    const res = document.getElementById('result');
-    const sText = document.getElementById('status-text');
+  const res = document.getElementById('result');
+  const sText = document.getElementById('status-text');
+  const glow = document.querySelector('.result-glow');
 
-    setTimeout(() => {
-        const luckyNumber = Math.floor(Math.random() * total) + 1;
-        res.innerText = luckyNumber;
+  setTimeout(() => {
+    const luckyNumber = Math.floor(Math.random() * total) + 1;
+    res.innerText = luckyNumber;
 
-        if (isMainRace) {
-            res.style.color = "#ff4757";
-            res.style.textShadow = "0 0 20px #ff4757";
-            //res.style.fontSize = "clamp(4rem, 10vw, 8rem)";
+    // 見た目はCSSクラスに統一
+res.classList.remove('result-normal');
+res.classList.remove('result-grade');
 
-            sText.innerHTML = `
-                <div style="color:#ff4757; font-weight:bold; font-size:1.2rem; margin-bottom:5px;">
-                    🏆 ${mainRaceName} 🏆
-                </div>
-                <span style="color:#ff4757; font-weight:bold; font-size:1.5rem;">
-                    【 ${grade} 勝 利 馬 番 】
-                </span>
-            `;
-
-            setTimeout(() => {
-                res.style.transform = "scale(1.5) rotate(-8deg)";
-            }, 100);
-        } else {
-            res.style.color = "#fff200";
-            sText.innerHTML = "<span style='color:#ffeb3b; font-weight:bold; font-size:1.5rem; text-shadow:0 0 10px #f00;'>【 確 定 】</span>";
-        }
-
-        res.style.transform = "scale(1.3) rotate(-5deg)";
-        document.getElementById('progress-container').style.display = "none";
-
-        setTimeout(() => {
-            res.style.transform = "scale(1.1) rotate(-5deg)";
-        }, 150);
-    }, 400);
+if (isMainRace) {
+  res.classList.add('result-grade');   // 赤
+} else {
+  res.classList.add('result-normal');  // 黄
 }
+
+
+    if (glow) glow.classList.add('active');
+
+    if (isMainRace) {
+      sText.innerHTML = `
+        <div style="color:#ff4757; font-weight:bold; font-size:1.2rem; margin-bottom:5px;">
+          🏆 ${mainRaceName} 🏆
+        </div>
+        <span style="color:#ff4757; font-weight:bold; font-size:1.5rem;">
+          【 ${grade} 勝 利 馬 番 】
+        </span>
+      `;
+      setTimeout(() => { res.style.transform = "scale(1.5) rotate(-8deg)"; }, 100);
+    } else {
+      sText.innerHTML = "<span style='color:#ffeb3b; font-weight:bold; font-size:1.5rem; text-shadow:0 0 10px #f00;'>【 確 定 】</span>";
+    }
+
+    res.style.transform = "scale(1.3) rotate(-5deg)";
+    document.getElementById('progress-container').style.display = "none";
+
+    setTimeout(() => { res.style.transform = "scale(1.1) rotate(-5deg)"; }, 150);
+  }, 400);
+}
+
 
 function syncTotal() {
     document.getElementById('total').value = document.getElementById('race-selector').value;

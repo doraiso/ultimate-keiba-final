@@ -90,27 +90,31 @@ input {
     transform: scale(1.02);
 }
 
-/* style.css */
+/* 通常時は光らせない */
 #result {
-    display: block;
-    /* 念のため追加 */
-    font-size: clamp(6rem, 50vw, 15rem);
-    /* !importantで強制 */
-    font-weight: 900;
-    font-style: italic;
-    margin-top: 10px;
-    line-height: 1;
-    color: #fff200;
-    /* 最初から黄金色にする */
-    text-shadow:
-        0 0 10px #fff,
-        0 0 20px #ffeb3b,
-        0 0 40px #ff0000,
-        0 0 70px #ff0000;
-    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    filter: drop-shadow(0 0 15px rgba(255, 235, 59, 0.8));
-    text-align: center;
-    width: 100%;
+  display: block;
+  font-size: clamp(6rem, 50vw, 15rem);
+  font-weight: 900;
+  font-style: italic;
+  margin-top: 10px;
+  line-height: 1;
+  text-align: center;
+  width: 100%;
+  color: #555;
+  text-shadow: none;
+  filter: none;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* 結果が出たときだけ光らせる */
+#result.result-final {
+  color: #fff200;
+  text-shadow:
+    0 0 10px #fff,
+    0 0 20px #ffeb3b,
+    0 0 40px #ff0000,
+    0 0 70px #ff0000;
+  filter: drop-shadow(0 0 15px rgba(255, 235, 59, 0.8));
 }
 
 /* エラー時の控えめなスタイル */
@@ -194,3 +198,36 @@ button.disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
+
+.result-glow {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.result-glow.active {
+  opacity: 1;
+}
+
+/* 通常レース（黄色） */
+#result.result-normal {
+  color: #fff200;
+  text-shadow:
+    0 0 10px #fff,
+    0 0 20px #ffeb3b,
+    0 0 40px #ff9900,
+    0 0 70px #ff0000;
+  filter: drop-shadow(0 0 15px rgba(255, 235, 59, 0.8));
+}
+
+/* グレードレース（赤） */
+#result.result-grade {
+  color: #ff1e1e;
+  text-shadow:
+    0 0 10px #fff,
+    0 0 20px #ff0000,
+    0 0 40px #ff0000,
+    0 0 70px #b30000;
+  filter: drop-shadow(0 0 20px rgba(255, 0, 0, 0.9));
+}
+
+
