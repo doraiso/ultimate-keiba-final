@@ -699,7 +699,7 @@ if (isMainRace) {
 
 
 function syncTotal() {
-    document.getElementById('total').value = document.getElementById('race-selector').value;
+    // document.getElementById('total').value = document.getElementById('race-selector').value;
 }
 
 function changeTotal(n) {
