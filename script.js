@@ -198,12 +198,9 @@ async function getMainRaceNameFromICS(venue) {
 function extractRaceNameFromICS(summary, venue) {
     console.log(`  ICS抽出: "${summary}"`);
 
-    // 1. 括弧内のグレード表記を除去
-    let raceName = summary
-        .replace(/\(G[Ⅰ-Ⅲ1-3]\)/g, '')
-        .replace(/（G[Ⅰ-Ⅲ1-3]）/g, '')
-        .replace(/\(J・G[Ⅰ-Ⅲ1-3]\)/g, '')
-        .replace(/（J・G[Ⅰ-Ⅲ1-3]）/g, '');
+// 1. 括弧内のグレード表記を除去（ASCII/ローマ数字/数字/全角括弧対応）
+let raceName = summary
+  .replace(/\s*[\(（]\s*(J・)?\s*G(?:1|I{1,3}|[ⅠⅡⅢ])\s*[\)）]\s*/g, '');
 
     // 2. 開催地名を除去（ただし「東京新聞杯」のようなものは保持）
     // まず開催地名で始まる場合をチェック
@@ -801,7 +798,7 @@ function extractRaceNameFromSummary(summary, venue) {
 
     venuePatterns.forEach(pattern => {
         const old = raceName;
-        raceName = raceName.replace(new RegExp(pattern, 'g'), '');
+        raceName = raceName.replace(/\(.*?\)/g, '').trim();;
         if (old !== raceName) {
             console.log(`  開催地除去 "${pattern}": "${old}" → "${raceName}"`);
         }
