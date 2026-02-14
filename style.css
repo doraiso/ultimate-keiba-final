@@ -189,3 +189,8 @@ select option[data-is-main="true"] {
     50% { opacity: 1; transform: scale(1); }
     100% { opacity: 0; transform: scale(1.5); }
 }
+
+button.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

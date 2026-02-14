@@ -290,6 +290,18 @@ function getNextMainRaceDefault(venue) {
     return nextRace;
 }
 
+function updateSpinButtonState() {
+    const place = document.getElementById('place-selector').value;
+    const race = document.getElementById('race-selector').value;
+    const button = document.querySelector('button[onclick="spin()"]');
+
+    const enabled = place && race;
+
+    button.disabled = !enabled;
+    button.classList.toggle('disabled', !enabled);
+}
+
+
 function calculateDaysUntil(dateStr) {
     const eventDate = parseICSDate(dateStr);
     const today = new Date();
@@ -1468,4 +1480,15 @@ document.addEventListener('DOMContentLoaded', debugICS);
 // ページ読み込み時に実行
 document.addEventListener('DOMContentLoaded', function () {
     initVenueSelector();
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+
+    document.getElementById('place-selector')
+        .addEventListener('change', updateSpinButtonState);
+
+    document.getElementById('race-selector')
+        .addEventListener('change', updateSpinButtonState);
+
+    updateSpinButtonState();
 });
