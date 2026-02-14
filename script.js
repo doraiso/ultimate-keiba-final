@@ -55,6 +55,73 @@ const fallbackMainRaces = {
     "12": "チャンピオンズカップ"
 };
 
+function toYmd(d) {
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, '0'),
+    String(d.getDate()).padStart(2, '0'),
+  ].join('');
+}
+
+function addDays(date, n) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + n);
+  d.setHours(0,0,0,0);
+  return d;
+}
+
+function pickRace(foundRaces, baseDateStr) {
+  foundRaces.sort((a,b) => a.date.localeCompare(b.date));
+  return foundRaces.find(r => r.date >= baseDateStr) || foundRaces[0] || null;
+}
+
+function isFutureOrToday(dateStr) {
+  const eventDate = parseICSDate(dateStr); // 00:00想定
+  const now = new Date();
+
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const d = now.getDate();
+
+  // 今日の0:00
+  const today0 = new Date(y, m, d, 0, 0, 0, 0);
+  // 今日の締切（適当に16:00とか。好きに調整）
+  const cutoff = new Date(y, m, d, 16, 0, 0, 0);
+
+  // eventDateが今日より未来ならOK
+  if (eventDate.getTime() > today0.getTime()) return true;
+
+  // eventDateが今日なら、締切前だけOK
+  if (eventDate.getTime() === today0.getTime()) return now.getTime() < cutoff.getTime();
+
+  // それ以外（過去）はNG
+  return false;
+}
+
+function calculateDaysUntilRaw(dateStr) {
+  const eventDate = parseICSDate(dateStr);
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  eventDate.setHours(0,0,0,0);
+
+  const diffTime = eventDate.getTime() - today.getTime();
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24)); // 負も返す
+}
+
+// 表示用（今の仕様維持したいなら）
+function calculateDaysUntil(dateStr) {
+  return Math.max(0, calculateDaysUntilRaw(dateStr));
+}
+
+
+function nextDow(dow) { // 0=日 .. 6=土
+    const d = new Date();
+    const diff = (dow - d.getDay() + 7) % 7 || 7; // “次の”曜日
+    d.setDate(d.getDate() + diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
+}
+
 async function getMainRaceNameFromICS(venue) {
     try {
         const currentYear = new Date().getFullYear();
@@ -64,6 +131,26 @@ async function getMainRaceNameFromICS(venue) {
         const icsText = await response.text();
         const today = new Date();
         // const currentYear = today.getFullYear();
+        const todayStr = [
+            today.getFullYear(),
+            String(today.getMonth() + 1).padStart(2, '0'),
+            String(today.getDate()).padStart(2, '0'),
+        ].join('');
+
+        // いったん最短を選ぶ
+        // foundRaces.sort((a, b) => a.date.localeCompare(b.date));
+        // const targetDateStr = toYmd(nextDow(6));
+        // let selectedRace =
+        //     foundRaces.find(r => r.date >= targetDateStr) || foundRaces[0];
+
+        // // 土曜で、最短が「今日」なら “次” にスキップ（＝日曜の予告）
+        // const isSaturday = today.getDay() === 6;
+        // if (isSaturday && selectedRace.date === todayStr && foundRaces.length > 1) {
+        //     selectedRace = foundRaces[1];
+        // }
+
+        // const daysUntil = calculateDaysUntil(selectedRace.date);
+
         const currentMonth = String(today.getMonth() + 1).padStart(2, '0');
 
         console.log(`=== ${venue}のメインレース検索 (${currentYear}年${currentMonth}月) ===`);
@@ -198,9 +285,9 @@ async function getMainRaceNameFromICS(venue) {
 function extractRaceNameFromICS(summary, venue) {
     console.log(`  ICS抽出: "${summary}"`);
 
-// 1. 括弧内のグレード表記を除去（ASCII/ローマ数字/数字/全角括弧対応）
-let raceName = summary
-  .replace(/\s*[\(（]\s*(J・)?\s*G(?:1|I{1,3}|[ⅠⅡⅢ])\s*[\)）]\s*/g, '');
+    // 1. 括弧内のグレード表記を除去（ASCII/ローマ数字/数字/全角括弧対応）
+    let raceName = summary
+        .replace(/\s*[\(（]\s*(J・)?\s*G(?:1|I{1,3}|[ⅠⅡⅢ])\s*[\)）]\s*/g, '');
 
     // 2. 開催地名を除去（ただし「東京新聞杯」のようなものは保持）
     // まず開催地名で始まる場合をチェック
@@ -1284,17 +1371,19 @@ async function testVenueRaces() {
 testVenueRaces();
 
 function isFutureOrToday(dateStr) {
-    // dateStr: YYYYMMDD形式
-    const eventDate = parseICSDate(dateStr);
-    const today = new Date();
+  const eventDate = parseICSDate(dateStr);
+  const now = new Date();
 
-    // 時刻を0時0分0秒にリセットして比較
-    today.setHours(0, 0, 0, 0);
-    eventDate.setHours(0, 0, 0, 0);
+  const today0 = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 16, 0, 0, 0);
 
-    // 今日以降（今日を含む）ならtrue
-    return eventDate.getTime() >= today.getTime();
+  eventDate.setHours(0, 0, 0, 0);
+
+  if (eventDate.getTime() > today0.getTime()) return true;
+  if (eventDate.getTime() === today0.getTime()) return now.getTime() < cutoff.getTime();
+  return false;
 }
+
 
 function parseICSDate(dateStr) {
     // YYYYMMDD形式をDateオブジェクトに変換
