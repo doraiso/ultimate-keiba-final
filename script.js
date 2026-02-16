@@ -22,7 +22,7 @@ const venueSettings = {
 
 const monthlyVenues = {
     1: ['中山', '京都'],
-    2: ['東京', '京都', '小倉'],
+    2: ['東京', '阪神', '小倉'],
     3: ['中山', '中京', '阪神'],
     4: ['東京', '福島'],
     5: ['東京', '京都', '新潟'],
@@ -40,6 +40,52 @@ function getCurrentMonthVenues() {
     return monthlyVenues[currentMonth] || ['東京', '中京', '小倉'];
 }
 
+// 直近の開催場を「開催スケジュールICS」から取得
+async function getUpcomingVenuesFromICS() {
+    const year = new Date().getFullYear();
+    const res = await fetch(`data/jracalendar${year}.ics`);
+    if (!res.ok) throw new Error("開催スケジュールICSなし");
+
+    const icsText = await res.text();
+    const events = icsText.split("BEGIN:VEVENT");
+
+    // 「次の土日」を対象にする（雑にこれで十分）
+    const sat = nextDow(6);
+    const sun = addDays(sat, 1);
+    const target = new Set([toYmd(sat), toYmd(sun)]); // YYYYMMDD
+
+    const venueNames = Object.keys(venueSettings);
+    const found = new Set();
+
+    for (const ev of events) {
+        if (!ev.trim()) continue;
+
+        const dateMatch =
+            ev.match(/DTSTART;VALUE=DATE:(\d{8})/) ||
+            ev.match(/DTSTART:(\d{8})/);
+        if (!dateMatch) continue;
+
+        const dt = dateMatch[1];
+        if (!target.has(dt)) continue;
+
+        // SUMMARY/LOCATION/DESCRIPTION を全部つなげて場名検出
+        const summary = (ev.match(/SUMMARY[^:]*:(.+?)(?:\r?\n|$)/) || [, ""])[1];
+        const location = (ev.match(/LOCATION[^:]*:(.+?)(?:\r?\n|$)/) || [, ""])[1];
+        const desc = (ev.match(/DESCRIPTION[^:]*:(.+?)(?:\r?\n|$)/) || [, ""])[1];
+        const blob = `${summary} ${location} ${desc}`;
+
+        for (const v of venueNames) {
+            if (blob.includes(v)) found.add(v);
+        }
+    }
+
+    // 何も取れなかったら例外にしてフォールバックさせる
+    const arr = Array.from(found);
+    if (arr.length === 0) throw new Error("開催場がICSから取れない");
+    return arr;
+}
+
+
 const fallbackMainRaces = {
     "01": "有馬記記念",
     "02": "フェブラリーステークス",
@@ -56,61 +102,61 @@ const fallbackMainRaces = {
 };
 
 function toYmd(d) {
-  return [
-    d.getFullYear(),
-    String(d.getMonth() + 1).padStart(2, '0'),
-    String(d.getDate()).padStart(2, '0'),
-  ].join('');
+    return [
+        d.getFullYear(),
+        String(d.getMonth() + 1).padStart(2, '0'),
+        String(d.getDate()).padStart(2, '0'),
+    ].join('');
 }
 
 function addDays(date, n) {
-  const d = new Date(date);
-  d.setDate(d.getDate() + n);
-  d.setHours(0,0,0,0);
-  return d;
+    const d = new Date(date);
+    d.setDate(d.getDate() + n);
+    d.setHours(0, 0, 0, 0);
+    return d;
 }
 
 function pickRace(foundRaces, baseDateStr) {
-  foundRaces.sort((a,b) => a.date.localeCompare(b.date));
-  return foundRaces.find(r => r.date >= baseDateStr) || foundRaces[0] || null;
+    foundRaces.sort((a, b) => a.date.localeCompare(b.date));
+    return foundRaces.find(r => r.date >= baseDateStr) || foundRaces[0] || null;
 }
 
 function isFutureOrToday(dateStr) {
-  const eventDate = parseICSDate(dateStr); // 00:00想定
-  const now = new Date();
+    const eventDate = parseICSDate(dateStr); // 00:00想定
+    const now = new Date();
 
-  const y = now.getFullYear();
-  const m = now.getMonth();
-  const d = now.getDate();
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    const d = now.getDate();
 
-  // 今日の0:00
-  const today0 = new Date(y, m, d, 0, 0, 0, 0);
-  // 今日の締切（適当に16:00とか。好きに調整）
-  const cutoff = new Date(y, m, d, 16, 0, 0, 0);
+    // 今日の0:00
+    const today0 = new Date(y, m, d, 0, 0, 0, 0);
+    // 今日の締切（適当に16:00とか。好きに調整）
+    const cutoff = new Date(y, m, d, 16, 0, 0, 0);
 
-  // eventDateが今日より未来ならOK
-  if (eventDate.getTime() > today0.getTime()) return true;
+    // eventDateが今日より未来ならOK
+    if (eventDate.getTime() > today0.getTime()) return true;
 
-  // eventDateが今日なら、締切前だけOK
-  if (eventDate.getTime() === today0.getTime()) return now.getTime() < cutoff.getTime();
+    // eventDateが今日なら、締切前だけOK
+    if (eventDate.getTime() === today0.getTime()) return now.getTime() < cutoff.getTime();
 
-  // それ以外（過去）はNG
-  return false;
+    // それ以外（過去）はNG
+    return false;
 }
 
 function calculateDaysUntilRaw(dateStr) {
-  const eventDate = parseICSDate(dateStr);
-  const today = new Date();
-  today.setHours(0,0,0,0);
-  eventDate.setHours(0,0,0,0);
+    const eventDate = parseICSDate(dateStr);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    eventDate.setHours(0, 0, 0, 0);
 
-  const diffTime = eventDate.getTime() - today.getTime();
-  return Math.ceil(diffTime / (1000 * 60 * 60 * 24)); // 負も返す
+    const diffTime = eventDate.getTime() - today.getTime();
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)); // 負も返す
 }
 
 // 表示用（今の仕様維持したいなら）
 function calculateDaysUntil(dateStr) {
-  return Math.max(0, calculateDaysUntilRaw(dateStr));
+    return Math.max(0, calculateDaysUntilRaw(dateStr));
 }
 
 
@@ -446,112 +492,96 @@ function getDefaultRaceForVenueAndMonth(venue, month) {
 }
 
 async function initVenueSelector() {
-    const selector = document.getElementById('place-selector');
-    const today = new Date();
+  const selector = document.getElementById('place-selector');
+  const today = new Date();
 
-    try {
-        const currentVenues = getCurrentMonthVenues();
-        const month = today.getMonth() + 1;
-        const season = ['冬', '冬', '春', '春', '初夏', '初夏',
-            '夏', '夏', '秋', '秋', '冬前', '冬前'][month - 1];
+  // まず venues を確定させる（ICS優先、ダメなら月別）
+  let venues;
+  try {
+    venues = await getUpcomingVenuesFromICS();
+  } catch (e) {
+    console.log('開催地ICS取得失敗。月別にフォールバック:', e);
+    venues = getCurrentMonthVenues();
+  }
 
-        let options = '<option value="">開催地を選択...</option>';
-        options += `<option value="" disabled>${month}月 (${season})の開催場</option>`;
+  const month = today.getMonth() + 1;
+  const season = ['冬', '冬', '春', '春', '初夏', '初夏', '夏', '夏', '秋', '秋', '冬前', '冬前'][month - 1];
 
-        currentVenues.forEach(venue => {
-            options += `<option value="${venue}">${venue}</option>`;
-        });
+  let options = '<option value="">開催地を選択...</option>';
+  options += `<option value="" disabled>${month}月 (${season})の開催場</option>`;
+  venues.forEach(v => {
+    options += `<option value="${v}">${v}</option>`;
+  });
 
-        selector.innerHTML = options;
+  selector.innerHTML = options;
 
-        // デバッグ：初期選択肢を設定
-        if (currentVenues.length > 0) {
-            selector.value = currentVenues[0];
-            setTimeout(() => {
-                updateRaceList(currentVenues[0]);
-            }, 100);
-        }
+  // 初期選択 + レース更新
+  if (venues.length > 0) {
+    selector.value = venues[0];
+    setTimeout(() => updateRaceList(venues[0]), 0);
+  }
 
-        selector.onchange = function () {
-            const selectedVenue = this.value;
-            if (selectedVenue) {
-                updateRaceList(selectedVenue);
-            } else {
-                const raceSelector = document.getElementById('race-selector');
-                raceSelector.innerHTML = '<option value="">先に開催地を選んでください</option>';
-            }
-        };
-
-        // テストボタンを追加（デバッグ用）
-        addTestButton();
-
-    } catch (error) {
-        console.log('初期化エラー:', error);
-        const fallbackVenues = getCurrentMonthVenues();
-        selector.innerHTML = `
-            <option value="">${new Date().getMonth() + 1}月の開催地</option>
-            ${fallbackVenues.map(v => `<option value="${v}">${v}</option>`).join('')}
-        `;
+  selector.onchange = function () {
+    const selectedVenue = this.value;
+    if (selectedVenue) {
+      updateRaceList(selectedVenue);
+    } else {
+      document.getElementById('race-selector').innerHTML = '<option value="">先に開催地を選んでください</option>';
     }
+  };
+
+  // addTestButton がある時だけ呼ぶ（無ければ何もしない）
+  if (typeof addTestButton === 'function') addTestButton();
 }
 
 async function updateRaceList(place) {
-    const raceSelector = document.getElementById('race-selector');
+  const raceSelector = document.getElementById('race-selector');
 
-    if (!place) {
-        raceSelector.innerHTML = '<option value="">先に開催地を選んでください</option>';
-        return;
+  if (!place) {
+    raceSelector.innerHTML = '<option value="">先に開催地を選んでください</option>';
+    return;
+  }
+
+  raceSelector.innerHTML = '<option value="">レースを読み込み中...</option>';
+
+  try {
+    const raceInfo = await getMainRaceNameFromICS(place);
+
+    raceSelector.innerHTML = '<option value="">レースを選択...</option>';
+
+    for (let i = 1; i <= 12; i++) {
+      const option = document.createElement('option');
+      option.value = String(i);
+
+      if (i === 11) {
+        const daysText = raceInfo.daysUntil > 0 ? ` (あと${raceInfo.daysUntil}日)` : ` (今日開催)`;
+        const gradeText = raceInfo.grade ? ` [${raceInfo.grade}]` : '';
+        option.text = `11R 🏆 ${raceInfo.name}${gradeText}${daysText}`;
+        option.dataset.isMain = 'true';
+        option.dataset.raceName = raceInfo.name;
+        option.dataset.raceDate = raceInfo.date;
+        option.dataset.grade = raceInfo.grade || 'G?';
+      } else {
+        option.text = `${i}R`;
+        option.dataset.isMain = 'false';
+      }
+
+      raceSelector.appendChild(option);
     }
+  } catch (error) {
+    console.log('レースリスト更新エラー:', error);
 
-    raceSelector.innerHTML = '<option value="">レースを読み込み中...</option>';
-
-    try {
-        const raceInfo = await getMainRaceNameFromICS(place);
-
-        raceSelector.innerHTML = '<option value="">レースを選択...</option>';
-
-        if (venueSettings[place]) {
-            for (let i = 1; i <= 12; i++) {
-                const option = document.createElement('option');
-                option.value = 16;
-
-                if (i === 11) {
-                    // メインレース（11R）
-                    const daysText = raceInfo.daysUntil > 0 ?
-                        ` (あと${raceInfo.daysUntil}日)` :
-                        ` (今日開催)`;
-
-                    const gradeText = raceInfo.grade ? ` [${raceInfo.grade}]` : '';
-
-                    option.text = `11R 🏆 ${raceInfo.name}${gradeText}${daysText}`;
-                    option.style.fontWeight = 'bold';
-                    option.style.color = raceInfo.grade === 'GI' ? '#ff4757' :
-                        raceInfo.grade === 'GII' ? '#ffa502' :
-                            raceInfo.grade === 'GIII' ? '#2ed573' : '#e74c3c';
-                    option.dataset.isMain = 'true';
-                    option.dataset.raceName = raceInfo.name;
-                    option.dataset.raceDate = raceInfo.date;
-                    option.dataset.grade = raceInfo.grade || 'G?';
-                } else {
-                    option.text = `${i}R`;
-                    option.dataset.isMain = 'false';
-                }
-
-                raceSelector.appendChild(option);
-            }
-        }
-    } catch (error) {
-        console.log('レースリスト更新エラー:', error);
-        raceSelector.innerHTML = '<option value="">レースを選択...</option>';
-        for (let i = 1; i <= 12; i++) {
-            const option = document.createElement('option');
-            option.value = 16;
-            option.text = `${i}R ${i === 11 ? "メインレース" : "通常レース"}`;
-            option.dataset.isMain = i === 11 ? 'true' : 'false';
-            raceSelector.appendChild(option);
-        }
+    raceSelector.innerHTML = '<option value="">レースを選択...</option>';
+    for (let i = 1; i <= 12; i++) {
+      const option = document.createElement('option');
+      option.value = String(i);
+      option.text = `${i}R${i === 11 ? ' メインレース' : ''}`;
+      option.dataset.isMain = i === 11 ? 'true' : 'false';
+      raceSelector.appendChild(option);
     }
+  }
 }
+
 
 function spin() {
     const total = Number(document.getElementById('total').value);
@@ -595,9 +625,9 @@ function resetDisplay() {
     pBar.style.width = "0%";
 
     // 追加：初期は光らせない
-   if (glow) glow.classList.remove('active');
-res.classList.remove('result-normal');
-res.classList.remove('result-grade');
+    if (glow) glow.classList.remove('active');
+    res.classList.remove('result-normal');
+    res.classList.remove('result-grade');
 
 }
 
@@ -655,29 +685,29 @@ function runProgressAnimation(callback) {
 }
 
 function showFinalResult(total, isMainRace, mainRaceName, grade = "G?") {
-  const res = document.getElementById('result');
-  const sText = document.getElementById('status-text');
-  const glow = document.querySelector('.result-glow');
+    const res = document.getElementById('result');
+    const sText = document.getElementById('status-text');
+    const glow = document.querySelector('.result-glow');
 
-  setTimeout(() => {
-    const luckyNumber = Math.floor(Math.random() * total) + 1;
-    res.innerText = luckyNumber;
+    setTimeout(() => {
+        const luckyNumber = Math.floor(Math.random() * total) + 1;
+        res.innerText = luckyNumber;
 
-    // 見た目はCSSクラスに統一
-res.classList.remove('result-normal');
-res.classList.remove('result-grade');
+        // 見た目はCSSクラスに統一
+        res.classList.remove('result-normal');
+        res.classList.remove('result-grade');
 
-if (isMainRace) {
-  res.classList.add('result-grade');   // 赤
-} else {
-  res.classList.add('result-normal');  // 黄
-}
+        if (isMainRace) {
+            res.classList.add('result-grade');   // 赤
+        } else {
+            res.classList.add('result-normal');  // 黄
+        }
 
 
-    if (glow) glow.classList.add('active');
+        if (glow) glow.classList.add('active');
 
-    if (isMainRace) {
-      sText.innerHTML = `
+        if (isMainRace) {
+            sText.innerHTML = `
         <div style="color:#ff4757; font-weight:bold; font-size:1.2rem; margin-bottom:5px;">
           🏆 ${mainRaceName} 🏆
         </div>
@@ -685,16 +715,16 @@ if (isMainRace) {
           【 ${grade} 勝 利 馬 番 】
         </span>
       `;
-      setTimeout(() => { res.style.transform = "scale(1.5) rotate(-8deg)"; }, 100);
-    } else {
-      sText.innerHTML = "<span style='color:#ffeb3b; font-weight:bold; font-size:1.5rem; text-shadow:0 0 10px #f00;'>【 確 定 】</span>";
-    }
+            setTimeout(() => { res.style.transform = "scale(1.5) rotate(-8deg)"; }, 100);
+        } else {
+            sText.innerHTML = "<span style='color:#ffeb3b; font-weight:bold; font-size:1.5rem; text-shadow:0 0 10px #f00;'>【 確 定 】</span>";
+        }
 
-    res.style.transform = "scale(1.3) rotate(-5deg)";
-    document.getElementById('progress-container').style.display = "none";
+        res.style.transform = "scale(1.3) rotate(-5deg)";
+        document.getElementById('progress-container').style.display = "none";
 
-    setTimeout(() => { res.style.transform = "scale(1.1) rotate(-5deg)"; }, 150);
-  }, 400);
+        setTimeout(() => { res.style.transform = "scale(1.1) rotate(-5deg)"; }, 150);
+    }, 400);
 }
 
 
@@ -1384,17 +1414,17 @@ async function testVenueRaces() {
 testVenueRaces();
 
 function isFutureOrToday(dateStr) {
-  const eventDate = parseICSDate(dateStr);
-  const now = new Date();
+    const eventDate = parseICSDate(dateStr);
+    const now = new Date();
 
-  const today0 = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-  const cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 16, 0, 0, 0);
+    const today0 = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 16, 0, 0, 0);
 
-  eventDate.setHours(0, 0, 0, 0);
+    eventDate.setHours(0, 0, 0, 0);
 
-  if (eventDate.getTime() > today0.getTime()) return true;
-  if (eventDate.getTime() === today0.getTime()) return now.getTime() < cutoff.getTime();
-  return false;
+    if (eventDate.getTime() > today0.getTime()) return true;
+    if (eventDate.getTime() === today0.getTime()) return now.getTime() < cutoff.getTime();
+    return false;
 }
 
 
@@ -1596,56 +1626,56 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function setupHoldRepeat(buttonEl, step) {
-  let timer = null;
-  let interval = 140; // 最初はゆっくり
-  let pressCount = 0;
+    let timer = null;
+    let interval = 140; // 最初はゆっくり
+    let pressCount = 0;
 
-  const tick = () => {
-    // ここで頭数を動かす（あなたの既存関数に合わせて）
-    changeTotal(step);           // ← 既存がこれならこれ
-    // syncTotal();              // ← 必要ならここで同期
+    const tick = () => {
+        // ここで頭数を動かす（あなたの既存関数に合わせて）
+        changeTotal(step);           // ← 既存がこれならこれ
+        // syncTotal();              // ← 必要ならここで同期
 
-    pressCount++;
-    // 押し続けたら加速（ほどほど）
-    if (pressCount === 8) interval = 90;
-    if (pressCount === 20) interval = 60;
+        pressCount++;
+        // 押し続けたら加速（ほどほど）
+        if (pressCount === 8) interval = 90;
+        if (pressCount === 20) interval = 60;
 
-    timer = setTimeout(tick, interval);
-  };
+        timer = setTimeout(tick, interval);
+    };
 
-  const start = (e) => {
-    e.preventDefault();
-    if (timer) return;
-    interval = 140;
-    pressCount = 0;
+    const start = (e) => {
+        e.preventDefault();
+        if (timer) return;
+        interval = 140;
+        pressCount = 0;
 
-    // 1回目は即反映
-    tick();
-  };
+        // 1回目は即反映
+        tick();
+    };
 
-  const stop = () => {
-    if (!timer) return;
-    clearTimeout(timer);
-    timer = null;
+    const stop = () => {
+        if (!timer) return;
+        clearTimeout(timer);
+        timer = null;
 
-    // 離した瞬間に「確定」させたい処理があればここ
-    // updateSpinButtonState(); // ボタン制御があるなら
-  };
+        // 離した瞬間に「確定」させたい処理があればここ
+        // updateSpinButtonState(); // ボタン制御があるなら
+    };
 
-  // スマホ優先（pointerが一番安定）
-  buttonEl.addEventListener('pointerdown', start, { passive: false });
-  buttonEl.addEventListener('pointerup', stop);
-  buttonEl.addEventListener('pointercancel', stop);
-  buttonEl.addEventListener('pointerleave', stop);
+    // スマホ優先（pointerが一番安定）
+    buttonEl.addEventListener('pointerdown', start, { passive: false });
+    buttonEl.addEventListener('pointerup', stop);
+    buttonEl.addEventListener('pointercancel', stop);
+    buttonEl.addEventListener('pointerleave', stop);
 
-  // 長押し中のコンテキストメニュー抑止（Android/一部ブラウザ）
-  buttonEl.addEventListener('contextmenu', (e) => e.preventDefault());
+    // 長押し中のコンテキストメニュー抑止（Android/一部ブラウザ）
+    buttonEl.addEventListener('contextmenu', (e) => e.preventDefault());
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  const minus = document.getElementById('minus-btn');
-  const plus = document.getElementById('plus-btn');
-  if (minus) setupHoldRepeat(minus, -1);
-  if (plus) setupHoldRepeat(plus, +1);
+    const minus = document.getElementById('minus-btn');
+    const plus = document.getElementById('plus-btn');
+    if (minus) setupHoldRepeat(minus, -1);
+    if (plus) setupHoldRepeat(plus, +1);
 });
 
