@@ -260,3 +260,21 @@ button.disabled {
   transform: scale(0.92);
   box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
 }
+
+.note {
+  margin: 8px auto 18px;
+  padding: 10px 14px;
+  max-width: 420px;
+
+  font-size: 1rem;
+  color: #ccc;
+  line-height: 1.7;
+
+  /* background: rgba(255,255,255,0.05);
+  border-left: 4px solid #ffeb3b;
+  border-radius: 8px; */
+
+  text-align: center;
+  color: #aaa;
+  letter-spacing: 0.05em;
+}
