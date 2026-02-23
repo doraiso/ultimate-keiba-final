@@ -43,7 +43,7 @@ function getCurrentMonthVenues() {
 // 直近の開催場を「開催スケジュールICS」から取得
 async function getUpcomingVenuesFromICS() {
     const year = new Date().getFullYear();
-    const res = await fetch(`data/jracalendar${year}.ics`);
+    const res = await fetch(`data/jrarace${year}.ics`);
     if (!res.ok) throw new Error("開催スケジュールICSなし");
 
     const icsText = await res.text();
@@ -222,9 +222,9 @@ async function getMainRaceNameFromICS(venue) {
             const eventYear = eventDateStr.substring(0, 4);
             const eventMonth = eventDateStr.substring(4, 6);
 
-            if (eventYear !== String(currentYear) || eventMonth !== currentMonth) {
-                continue;
-            }
+            // if (eventYear !== String(currentYear) || eventMonth !== currentMonth) {
+            //     continue;
+            // }
 
             // サマリー取得
             const summaryMatch = event.match(/SUMMARY:(.+?)\r?\n/);
