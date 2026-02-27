@@ -35,6 +35,59 @@ const monthlyVenues = {
     12: ['中山', '中京', '阪神']
 };
 
+function ymdJstParts(date) {
+  const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000);
+  const y = jst.getUTCFullYear();
+  const m = String(jst.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(jst.getUTCDate()).padStart(2, "0");
+  return { y, m, d, yyyymm: `${y}${m}` };
+}
+
+function venueFromRaceName(name) {
+  // "2回小倉1日" -> "小倉"
+  const s = String(name);
+  const parts = s.split("回");
+  const tail = (parts[1] ?? s);
+  // "小倉1日" -> "小倉"（数字と「○日」を落とす）
+  return tail.replace(/[0-9０-９]/g, "").replace(/日/g, "").trim();
+}
+
+async function getVenuesForDateFromJraJson(date) {
+  const { yyyymm, d } = ymdJstParts(date);
+
+  const res = await fetch(`data/jra/${yyyymm}.json`, { cache: "no-store" });
+  if (!res.ok) return []; // まだファイルが無い等
+
+  const json = await res.json();
+  const dayNum = Number(d);
+
+  const day = json?.[0]?.data?.find(x => Number(x.date) === dayNum);
+  if (!day) return [];
+
+  const races = day?.info?.[0]?.race ?? [];
+  const venues = races
+    .map(r => venueFromRaceName(r.name))
+    .filter(v => v);
+
+  return [...new Set(venues)];
+}
+
+// 週末表示用：土日を合算（片方だけ出る変則対策）
+async function getWeekendVenuesFromJraJson(base = new Date()) {
+  const day = base.getDay(); // 0=Sun..6=Sat
+  const sat = new Date(base);
+  sat.setDate(base.getDate() + ((6 - day + 7) % 7));
+  const sun = new Date(sat);
+  sun.setDate(sat.getDate() + 1);
+
+  const [vSat, vSun] = await Promise.all([
+    getVenuesForDateFromJraJson(sat),
+    getVenuesForDateFromJraJson(sun),
+  ]);
+
+  return [...new Set([...vSat, ...vSun])];
+}
+
 function getCurrentMonthVenues() {
     const currentMonth = new Date().getMonth() + 1;
     return monthlyVenues[currentMonth] || ['東京', '中京', '小倉'];
@@ -85,6 +138,52 @@ async function getUpcomingVenuesFromICS() {
     return arr;
 }
 
+async function getUpcomingVenuesFromJraJson() {
+    // data/jra/YYYYMM.json を見て「次の土日」の開催地を返す（A/B/Cの順に並ぶことが多い想定）
+    const sat = nextDow(6);
+    const sun = addDays(sat, 1);
+
+    const targets = [
+        { date: sat, ymd: toYmdJst(sat) },
+        { date: sun, ymd: toYmdJst(sun) },
+    ];
+
+    // 月跨ぎに備えて、対象日が属する月のファイルをまとめて読む
+    const months = Array.from(new Set(targets.map(t => ymdJstParts(t.date).yyyymm)));
+
+    const monthData = new Map(); // yyyymm -> json[0]
+    for (const yyyymm of months) {
+        const res = await fetch(`data/jra/${yyyymm}.json`, { cache: "no-store" });
+        if (!res.ok) throw new Error(`JRA月別JSONなし: ${yyyymm}`);
+        const j = await res.json();
+        if (!Array.isArray(j) || !j[0] || !Array.isArray(j[0].data)) {
+            throw new Error(`JRA月別JSON形式が想定外: ${yyyymm}`);
+        }
+        monthData.set(yyyymm, j[0]);
+    }
+
+    const found = new Set();
+
+    for (const t of targets) {
+        const p = ymdJstParts(t.date);
+        const monthJson = monthData.get(p.yyyymm);
+        if (!monthJson) continue;
+
+        const dayNum = Number(p.d); // "01" -> 1
+        const dayEntry = monthJson.data.find(x => Number(x.date) === dayNum);
+        if (!dayEntry || !dayEntry.info || !dayEntry.info[0] || !Array.isArray(dayEntry.info[0].race)) continue;
+
+        for (const r of dayEntry.info[0].race) {
+            const name = r && r.name ? r.name : "";
+            const v = venueFromRaceName(name);
+            if (v) found.add(v);
+        }
+    }
+
+    // 何も取れない場合は空配列（呼び出し側でフォールバック）
+    return Array.from(found);
+}
+
 
 const fallbackMainRaces = {
     "01": "有馬記記念",
@@ -107,6 +206,11 @@ function toYmd(d) {
         String(d.getMonth() + 1).padStart(2, '0'),
         String(d.getDate()).padStart(2, '0'),
     ].join('');
+}
+
+function toYmdJst(date) {
+    const p = ymdJstParts(date);
+    return `${p.y}${p.m}${p.d}`;
 }
 
 function addDays(date, n) {
@@ -204,6 +308,12 @@ async function getMainRaceNameFromICS(venue) {
         const events = icsText.split('BEGIN:VEVENT');
         let foundRaces = [];
 
+        // 「次の土日」だけを対象にする（ローカル開催で将来の重賞を拾わないため）
+        const sat = nextDow(6);
+        const sun = addDays(sat, 1);
+        const targetDates = new Set([toYmd(sat), toYmd(sun)]); // YYYYMMDD
+
+
         for (const event of events) {
             if (event.trim().length === 0) continue;
 
@@ -218,6 +328,11 @@ async function getMainRaceNameFromICS(venue) {
                 continue;
             }
 
+
+            // 次の土日以外は対象外
+            if (!targetDates.has(eventDateStr)) {
+                continue;
+            }
             // 年月チェック
             const eventYear = eventDateStr.substring(0, 4);
             const eventMonth = eventDateStr.substring(4, 6);
@@ -319,11 +434,11 @@ async function getMainRaceNameFromICS(venue) {
         }
 
         console.log('✗ 今月のレース見つからず');
-        return getNextMainRaceDefault(venue);
+        return null;
 
     } catch (error) {
         console.log('ICSからのメインレース取得失敗:', error);
-        return getNextMainRaceDefault(venue);
+        return null;
     }
 }
 
@@ -495,13 +610,19 @@ async function initVenueSelector() {
     const selector = document.getElementById('place-selector');
     const today = new Date();
 
-    // まず venues を確定させる（ICS優先、ダメなら月別）
+    // まず venues を確定させる（JRA月別JSON → ICS → 月別）
     let venues;
     try {
-        venues = await getUpcomingVenuesFromICS();
-    } catch (e) {
-        console.log('開催地ICS取得失敗。月別にフォールバック:', e);
-        venues = getCurrentMonthVenues();
+        venues = await getUpcomingVenuesFromJraJson();
+        if (!venues || venues.length === 0) throw new Error("次の土日の開催地が0件");
+    } catch (e1) {
+        console.log('開催地JSON取得失敗。ICSにフォールバック:', e1);
+        try {
+            venues = await getUpcomingVenuesFromICS();
+        } catch (e2) {
+            console.log('開催地ICS取得失敗。月別にフォールバック:', e2);
+            venues = getCurrentMonthVenues();
+        }
     }
 
     const month = today.getMonth() + 1;
@@ -555,10 +676,9 @@ async function updateRaceList(place) {
             const option = document.createElement('option');
             option.value = String(i);
 
-            if (i === 11) {
+            if (i === 11 && raceInfo) {
                 const daysText = raceInfo.daysUntil > 0 ? ` (あと${raceInfo.daysUntil}日)` : ` (今日開催)`;
                 const gradeText = raceInfo.grade ? ` [${raceInfo.grade}]` : '';
-                // console.log(gradeText);
                 const g = (raceInfo.grade || "")
                     .replace(/[Ｇ]/g, "G")
                     .replace(/[Ⅰ]/g, "I")
@@ -571,7 +691,6 @@ async function updateRaceList(place) {
                 if (g === "GI") option.style.color = "#d4af37";
                 else if (g === "GII") option.style.color = "#c0c0c0";
                 else if (g === "GIII") option.style.color = "#cd7f32";
-
 
                 option.text = `11R 🏆 ${raceInfo.name}${gradeText}${daysText}`;
                 option.dataset.isMain = 'true';
