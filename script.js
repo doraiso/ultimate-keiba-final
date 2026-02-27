@@ -72,6 +72,85 @@ async function getVenuesForDateFromJraJson(date) {
   return [...new Set(venues)];
 }
 
+async function getGradeRacesForDateFromJraJson(date) {
+  const { yyyymm, d } = ymdJstParts(date);
+
+  const res = await fetch(`data/jra/${yyyymm}.json`, { cache: "no-store" });
+  if (!res.ok) return [];
+
+  const json = await res.json();
+  const day = json?.[0]?.data?.find(x => Number(x.date) === Number(d));
+  if (!day) return [];
+
+  const info0 = day?.info?.[0];
+  const gradeRaces = info0?.gradeRace ?? [];
+  const races = info0?.race ?? []; // A/B/C場情報
+
+  // gradeRace: { name, detail, grade, pos } みたいなのが来る想定
+  return gradeRaces.map(gr => {
+    const pos = Number(gr.pos); // 1..3
+    const venueNameRaw = races[pos - 1]?.name ?? "";
+    const venue = venueNameRaw ? venueFromRaceName(venueNameRaw) : "";
+    return {
+      venue,
+      name: gr.name || gr.detail || "",
+      grade: gr.grade || "",
+    };
+  }).filter(x => x.name);
+}
+
+async function getWeekendGradeRacesFromJraJson(base = new Date()) {
+  const day = base.getDay();
+  const sat = new Date(base);
+  sat.setDate(base.getDate() + ((6 - day + 7) % 7));
+  const sun = new Date(sat);
+  sun.setDate(sat.getDate() + 1);
+
+  const [satGR, sunGR] = await Promise.all([
+    getGradeRacesForDateFromJraJson(sat),
+    getGradeRacesForDateFromJraJson(sun),
+  ]);
+
+  // 同じ重賞が重複しないように軽くユニーク化
+  const key = (x) => `${x.venue}|${x.grade}|${x.name}`;
+  const map = new Map();
+  [...satGR, ...sunGR].forEach(x => map.set(key(x), x));
+  return [...map.values()];
+}
+
+function getNextWeekendDates(base = new Date()) {
+  const day = base.getDay(); // 0=Sun
+  const sat = new Date(base);
+  sat.setDate(base.getDate() + ((6 - day + 7) % 7));
+  const sun = new Date(sat);
+  sun.setDate(sat.getDate() + 1);
+  return { sat, sun };
+}
+
+function getSelectedDate() {
+  const { sat, sun } = getNextWeekendDates(new Date());
+  const v = document.querySelector('input[name="raceDay"]:checked')?.value || "sat";
+  return v === "sun" ? sun : sat;
+}
+
+
+
+async function renderWeekendGradeRaces() {
+  const list = await getWeekendGradeRacesFromJraJson(new Date());
+  const el = document.querySelector("#weekendGradeRaces");
+  if (!el) return;
+
+  if (list.length === 0) {
+    el.textContent = "今週末の重賞：なし";
+    return;
+  }
+
+  // 例：中山 G2 弥生賞 / 阪神 G3 ○○
+  el.textContent =
+    "今週末の重賞： " +
+    list.map(x => `${x.venue} ${x.grade} ${x.name}`).join(" / ");
+}
+
 // 週末表示用：土日を合算（片方だけ出る変則対策）
 async function getWeekendVenuesFromJraJson(base = new Date()) {
   const day = base.getDay(); // 0=Sun..6=Sat
@@ -1748,6 +1827,8 @@ document.addEventListener('DOMContentLoaded', debugICS);
 // ページ読み込み時に実行
 document.addEventListener('DOMContentLoaded', function () {
     initVenueSelector();
+    // 週末に重賞があれば上部におまけ表示
+    renderWeekendGradeRaces().catch(console.error);
 });
 
 document.addEventListener('DOMContentLoaded', () => {
