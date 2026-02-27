@@ -183,20 +183,6 @@ function getCurrentMonthVenues() {
     return monthlyVenues[currentMonth] || ['東京', '中京', '小倉'];
 }
 
-const fallbackMainRaces = {
-    "01": "有馬記念",
-    "02": "フェブラリーステークス",
-    "03": "大阪杯",
-    "04": "桜花賞",
-    "05": "皐月賞",
-    "06": "安田記念",
-    "07": "宝塚記念",
-    "08": "スプリンターズステークス",
-    "09": "秋華賞",
-    "10": "菊花賞",
-    "11": "ジャパンカップ",
-    "12": "チャンピオンズカップ"
-};
 
 function toYmd(d) {
     return [
