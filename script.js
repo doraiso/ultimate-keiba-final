@@ -183,56 +183,8 @@ function getCurrentMonthVenues() {
     return monthlyVenues[currentMonth] || ['東京', '中京', '小倉'];
 }
 
-
-async function getUpcomingVenuesFromJraJson() {
-    // data/jra/YYYYMM.json を見て「次の土日」の開催地を返す（A/B/Cの順に並ぶことが多い想定）
-    const sat = nextDow(6);
-    const sun = addDays(sat, 1);
-
-    const targets = [
-        { date: sat, ymd: toYmdJst(sat) },
-        { date: sun, ymd: toYmdJst(sun) },
-    ];
-
-    // 月跨ぎに備えて、対象日が属する月のファイルをまとめて読む
-    const months = Array.from(new Set(targets.map(t => ymdJstParts(t.date).yyyymm)));
-
-    const monthData = new Map(); // yyyymm -> json[0]
-    for (const yyyymm of months) {
-        const res = await fetch(`data/jra/${yyyymm}.json`, { cache: "no-store" });
-        if (!res.ok) throw new Error(`JRA月別JSONなし: ${yyyymm}`);
-        const j = await res.json();
-        if (!Array.isArray(j) || !j[0] || !Array.isArray(j[0].data)) {
-            throw new Error(`JRA月別JSON形式が想定外: ${yyyymm}`);
-        }
-        monthData.set(yyyymm, j[0]);
-    }
-
-    const found = new Set();
-
-    for (const t of targets) {
-        const p = ymdJstParts(t.date);
-        const monthJson = monthData.get(p.yyyymm);
-        if (!monthJson) continue;
-
-        const dayNum = Number(p.d); // "01" -> 1
-        const dayEntry = monthJson.data.find(x => Number(x.date) === dayNum);
-        if (!dayEntry || !dayEntry.info || !dayEntry.info[0] || !Array.isArray(dayEntry.info[0].race)) continue;
-
-        for (const r of dayEntry.info[0].race) {
-            const name = r && r.name ? r.name : "";
-            const v = venueFromRaceName(name);
-            if (v) found.add(v);
-        }
-    }
-
-    // 何も取れない場合は空配列（呼び出し側でフォールバック）
-    return Array.from(found);
-}
-
-
 const fallbackMainRaces = {
-    "01": "有馬記記念",
+    "01": "有馬記念",
     "02": "フェブラリーステークス",
     "03": "大阪杯",
     "04": "桜花賞",
@@ -272,7 +224,7 @@ function pickRace(foundRaces, baseDateStr) {
 }
 
 function isFutureOrToday(dateStr) {
-    const eventDate = parseICSDate(dateStr); // 00:00想定
+    const eventDate = parseYmd(dateStr); // 00:00想定
     const now = new Date();
 
     const y = now.getFullYear();
@@ -295,7 +247,7 @@ function isFutureOrToday(dateStr) {
 }
 
 function calculateDaysUntilRaw(dateStr) {
-    const eventDate = parseICSDate(dateStr);
+    const eventDate = parseYmd(dateStr);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     eventDate.setHours(0, 0, 0, 0);
@@ -343,7 +295,7 @@ function updateSpinButtonState() {
 
 
 function calculateDaysUntil(dateStr) {
-    const eventDate = parseICSDate(dateStr);
+    const eventDate = parseYmd(dateStr);
     const today = new Date();
 
     today.setHours(0, 0, 0, 0);
@@ -362,12 +314,12 @@ async function initVenueSelector() {
     // まず venues を確定させる（JRA月別JSON → ICS → 月別）
     let venues;
     try {
-        venues = await getUpcomingVenuesFromJraJson();
+        venues = await getWeekendVenuesFromJraJson(today); // ← これだけにする
         if (!venues || venues.length === 0) throw new Error("次の土日の開催地が0件");
     } catch (e1) {
         console.log('開催地JSON取得失敗。ICSにフォールバック:', e1);
         try {
-            venues = await getUpcomingVenuesFromJraJson(); // JRA JSONでフィルタリングして優先表示
+            venues = await getWeekendVenuesFromJraJson(today); // ← これだけにする
         } catch (e2) {
             console.log('開催地ICS取得失敗。月別にフォールバック:', e2);
             venues = getCurrentMonthVenues();
@@ -1216,7 +1168,7 @@ function testExtraction() {
 testExtraction();
 
 function isFutureOrToday(dateStr) {
-    const eventDate = parseICSDate(dateStr);
+    const eventDate = parseYmd(dateStr);
     const now = new Date();
 
     const today0 = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
@@ -1230,7 +1182,7 @@ function isFutureOrToday(dateStr) {
 }
 
 
-function parseICSDate(dateStr) {
+function parseYmd(dateStr) {
     // YYYYMMDD形式をDateオブジェクトに変換
     if (!dateStr || dateStr.length !== 8) return new Date();
 
