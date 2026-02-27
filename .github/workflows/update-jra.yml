@@ -1,0 +1,52 @@
+name: Update JRA Calendar JSON
+
+on:
+  schedule:
+    # 毎日 03:20 JST（= 前日 18:20 UTC）
+    - cron: "20 18 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-jra-calendar
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fetch this month and next month JSON
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p data/jra
+
+          # ActionsはUTCになりがちなので、JST基準で今月/来月を計算
+          YM_THIS=$(date -u -d "+9 hours" +%Y%m)
+          YM_NEXT=$(date -u -d "+9 hours +1 month" +%Y%m)
+
+          echo "YM_THIS=$YM_THIS"
+          echo "YM_NEXT=$YM_NEXT"
+
+          curl -fsSL "https://www.jra.go.jp/keiba/common/calendar/json/${YM_THIS}.json" -o "data/jra/${YM_THIS}.json"
+          curl -fsSL "https://www.jra.go.jp/keiba/common/calendar/json/${YM_NEXT}.json" -o "data/jra/${YM_NEXT}.json"
+
+      - name: Commit & push if changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git status --porcelain | grep -q .; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add data/jra/*.json
+            git commit -m "chore: update JRA calendar JSON"
+            git push
+          else
+            echo "No changes to commit."
+          fi
