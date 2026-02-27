@@ -219,16 +219,6 @@ function isFutureOrToday(dateStr) {
     return false;
 }
 
-function calculateDaysUntilRaw(dateStr) {
-    const eventDate = parseYmd(dateStr);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    eventDate.setHours(0, 0, 0, 0);
-
-    const diffTime = eventDate.getTime() - today.getTime();
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)); // 負も返す
-}
-
 // 表示用（今の仕様維持したいなら）
 function calculateDaysUntil(dateStr) {
     return Math.max(0, calculateDaysUntilRaw(dateStr));
@@ -629,16 +619,6 @@ function normalizeDate(dateStr) {
     return dateStr;
 }
 
-function extractYearMonth(dateStr) {
-    const normalized = normalizeDate(dateStr);
-    if (!normalized || normalized.length < 6) return { year: null, month: null };
-
-    return {
-        year: normalized.substring(0, 4),
-        month: normalized.substring(4, 6)
-    };
-}
-
 // ページ読み込み時に現在の日付をチェック
 function testCurrentDate() {
     const now = new Date();
@@ -653,107 +633,13 @@ function testCurrentDate() {
     // HTMLにも表示
     const debugDiv = document.createElement('div');
     debugDiv.style.cssText = 'position:fixed; top:10px; right:10px; background:rgba(0,0,0,0.8); color:white; padding:10px; z-index:9999; font-size:12px;';
-    // debugDiv.innerHTML = `
-    //     <strong>デバッグ情報</strong><br>
-    //     現在日付: ${now.toLocaleDateString('ja-JP')}<br>
-    //     月: ${now.getMonth() + 1}月<br>
-    //     getMonth(): ${now.getMonth()}
-    // `;
+
     document.body.appendChild(debugDiv);
 }
 
 // 実行
 testCurrentDate();
 
-function extractRaceNameFromSummary(summary, venue) {
-    // 元の文字列を保持
-    console.log(`抽出開始: "${summary}" (開催地: ${venue})`);
-
-    let raceName = summary;
-
-    // 1. 開催地名を除去（複数パターン）
-    const venuePatterns = [
-        `${venue}競馬`,
-        `${venue}競馬場`,
-        `${venue} `,
-        ` ${venue}`,
-        venue,
-    ];
-
-    venuePatterns.forEach(pattern => {
-        const old = raceName;
-        raceName = raceName.replace(/\(.*?\)/g, '').trim();;
-        if (old !== raceName) {
-            console.log(`  開催地除去 "${pattern}": "${old}" → "${raceName}"`);
-        }
-    });
-
-    // 2. グレード表記の処理（よりスマートに）
-    // 例: "G1 天皇賞(秋)" → "天皇賞(秋)"
-    // 例: "東京競馬 東京新聞杯 (GIII)" → "東京新聞杯"
-    raceName = raceName
-        .replace(/^(G[Ⅰ-Ⅲ1-3]|GI{1,3}|GRADE\s*\d)\s+/, '')  // 先頭のグレード表記
-        .replace(/\s+\((G[Ⅰ-Ⅲ1-3]|GI{1,3})\)/, '')          // 末尾の (GIII) 形式
-        .replace(/\s+G[Ⅰ-Ⅲ1-3]\s*$/, '')                    // 末尾の GIII 形式
-        .replace(/\s+GRADE\s*\d\s*$/, '');                  // 末尾の GRADE 形式
-
-    // 3. 不要な語句を除去
-    const removePatterns = [
-        '競馬',
-        'レース',
-        'JRA',
-        'ダート',
-        '芝',
-        'メインレース',
-        '特別'
-    ];
-
-    removePatterns.forEach(pattern => {
-        raceName = raceName.replace(new RegExp(pattern, 'g'), '');
-    });
-
-    // 4. 括弧の処理（より注意深く）
-    // まず、括弧内がグレード表記だけの場合を除去
-    raceName = raceName.replace(/\s*\((G[Ⅰ-Ⅲ1-3]|GI{1,3})\)/, '');
-
-    // それ以外の括弧は保持（例: "天皇賞(秋)"）
-    // ただし、余分な空白や記号は整理
-    raceName = raceName
-        .replace(/\s+/g, ' ')           // 連続する空白を1つに
-        .replace(/^\s+|\s+$/g, '')      // 前後の空白を除去
-        .replace(/[　]+/g, ' ')         // 全角スペースを半角に
-        .replace(/^[:\-\s]+|[:\-\s]+$/g, ''); // 前後の記号を除去
-
-    console.log(`抽出結果: "${raceName}"`);
-    return raceName;
-}
-
-// ICSの実際のフォーマットを分析
-function analyzeICSFormat(icsText, venue) {
-    const events = icsText.split('BEGIN:VEVENT');
-    const venueEvents = [];
-
-    events.forEach((event, index) => {
-        const summaryMatch = event.match(/SUMMARY[^:]*:(.+?)(?:\r?\n|$)/);
-        if (summaryMatch) {
-            const summary = summaryMatch[1].trim();
-            if (summary.includes(venue)) {
-                venueEvents.push({
-                    index,
-                    summary,
-                    raw: summary
-                });
-            }
-        }
-    });
-
-    console.log(`=== ${venue}のICSサマリー分析 ===`);
-    venueEvents.slice(0, 5).forEach((item, i) => {
-        console.log(`${i + 1}. ${item.summary}`);
-    });
-
-    return venueEvents;
-}
 
 function extractRaceNameSmart(summary, venue) {
     console.log(`スマート抽出開始: "${summary}" (開催地: ${venue})`);
@@ -804,14 +690,6 @@ function extractRaceNameSmart(summary, venue) {
     result = cleanRaceName(result);
     console.log(`  フォールバック結果: "${result}"`);
     return result;
-}
-
-function cleanRaceName(name) {
-    return name
-        .replace(/\s+/g, ' ')
-        .replace(/^\s+|\s+$/g, '')
-        .replace(/^[「"『]|[」"』]$/g, '')  // 引用符を除去
-        .replace(/^[:\-\.]\s*|\s*[:\-\.]$/g, ''); // 前後の記号を除去
 }
 
 function extractRaceNameForKnownPatterns(summary, venue) {
@@ -1082,79 +960,6 @@ function extractRaceNameKeywords(summary, venue) {
     return summary;
 }
 
-function testRaceNameExtraction() {
-    const testCases = [
-        { input: "東京競馬 東京新聞杯 (GIII)", venue: "東京", expected: "東京新聞杯" },
-        { input: "東京 G1 天皇賞(秋)", venue: "東京", expected: "天皇賞(秋)" },
-        { input: "中山競馬 中山記念 (GII)", venue: "中山", expected: "中山記念" },
-        { input: "京都 桜花賞 G1", venue: "京都", expected: "桜花賞" },
-        { input: "阪神競馬 宝塚記念 (GI)", venue: "阪神", expected: "宝塚記念" },
-    ];
-
-    console.log('=== レース名抽出テスト ===');
-    testCases.forEach((test, i) => {
-        console.log(`\nテスト ${i + 1}:`);
-        console.log(`  入力: "${test.input}"`);
-        console.log(`  開催地: ${test.venue}`);
-        const result = extractRaceNameSmart(test.input, test.venue);
-        console.log(`  結果: "${result}"`);
-        console.log(`  期待: "${test.expected}"`);
-        console.log(`  一致: ${result === test.expected ? '✓' : '✗'}`);
-    });
-}
-
-
-
-// 実行
-testRaceNameExtraction();
-
-
-function testExtraction() {
-    const testCases = [
-        { input: "東京競馬 東京新聞杯 (GIII)", venue: "東京", expected: "東京新聞杯" },
-        { input: "東京 フェブラリーステークス (G1)", venue: "東京", expected: "フェブラリーステークス" },
-        { input: "東京新聞杯 (GIII)", venue: "東京", expected: "東京新聞杯" },
-        { input: "東京競馬 中山記念 (GII)", venue: "東京", expected: "中山記念" }, // 別開催地のレース
-        { input: "京都競馬 桜花賞 G1", venue: "京都", expected: "桜花賞" },
-        { input: "阪神競馬 宝塚記念 (GI)", venue: "阪神", expected: "宝塚記念" },
-    ];
-
-    console.log('=== レース名抽出完全テスト ===');
-    testCases.forEach((test, i) => {
-        console.log(`\nテスト ${i + 1}:`);
-        console.log(`  入力: "${test.input}"`);
-        console.log(`  開催地: ${test.venue}`);
-        const result = extractRaceNameIntelligent(test.input, test.venue);
-        console.log(`  結果: "${result}"`);
-        console.log(`  期待: "${test.expected}"`);
-        console.log(`  一致: ${result === test.expected ? '✓' : '✗'}`);
-
-        if (result !== test.expected) {
-            console.log(`  差分分析:`);
-            console.log(`    結果長さ: ${result.length}`);
-            console.log(`    期待長さ: ${test.expected.length}`);
-        }
-    });
-}
-
-// 実行
-testExtraction();
-
-function isFutureOrToday(dateStr) {
-    const eventDate = parseYmd(dateStr);
-    const now = new Date();
-
-    const today0 = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-    const cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 16, 0, 0, 0);
-
-    eventDate.setHours(0, 0, 0, 0);
-
-    if (eventDate.getTime() > today0.getTime()) return true;
-    if (eventDate.getTime() === today0.getTime()) return now.getTime() < cutoff.getTime();
-    return false;
-}
-
-
 function parseYmd(dateStr) {
     // YYYYMMDD形式をDateオブジェクトに変換
     if (!dateStr || dateStr.length !== 8) return new Date();
@@ -1165,8 +970,6 @@ function parseYmd(dateStr) {
 
     return new Date(year, month, day);
 }
-
-
 
 // レース情報を詳細に表示
 function displayRaceDebugInfo(raceInfo) {
