@@ -172,6 +172,7 @@ function getCurrentMonthVenues() {
     return monthlyVenues[currentMonth] || ['東京', '中京', '小倉'];
 }
 
+
 async function getUpcomingVenuesFromJraJson() {
     // data/jra/YYYYMM.json を見て「次の土日」の開催地を返す（A/B/Cの順に並ぶことが多い想定）
     const sat = nextDow(6);
@@ -298,12 +299,12 @@ function calculateDaysUntil(dateStr) {
 }
 
 
-function nextDow(dow) { // 0=日 .. 6=土
-    const d = new Date();
-    const diff = (dow - d.getDay() + 7) % 7 || 7; // “次の”曜日
-    d.setDate(d.getDate() + diff);
-    d.setHours(0, 0, 0, 0);
-    return d;
+function nextDow(dow) { // 0=日 .. 6=土（今日を含む）
+  const d = new Date();
+  const diff = (dow - d.getDay() + 7) % 7; // 0なら今日
+  d.setDate(d.getDate() + diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
 }
 
 async function getMainRaceNameFromICS(venue) {
