@@ -172,51 +172,6 @@ function getCurrentMonthVenues() {
     return monthlyVenues[currentMonth] || ['東京', '中京', '小倉'];
 }
 
-// 直近の開催場を「開催スケジュールICS」から取得
-async function getUpcomingVenuesFromICS() {
-    const year = new Date().getFullYear();
-    const res = await fetch(`data/jrarace${year}.ics`);
-    if (!res.ok) throw new Error("開催スケジュールICSなし");
-
-    const icsText = await res.text();
-    const events = icsText.split("BEGIN:VEVENT");
-
-    // 「次の土日」を対象にする（雑にこれで十分）
-    const sat = nextDow(6);
-    const sun = addDays(sat, 1);
-    const target = new Set([toYmd(sat), toYmd(sun)]); // YYYYMMDD
-
-    const venueNames = Object.keys(venueSettings);
-    const found = new Set();
-
-    for (const ev of events) {
-        if (!ev.trim()) continue;
-
-        const dateMatch =
-            ev.match(/DTSTART;VALUE=DATE:(\d{8})/) ||
-            ev.match(/DTSTART:(\d{8})/);
-        if (!dateMatch) continue;
-
-        const dt = dateMatch[1];
-        if (!target.has(dt)) continue;
-
-        // SUMMARY/LOCATION/DESCRIPTION を全部つなげて場名検出
-        const summary = (ev.match(/SUMMARY[^:]*:(.+?)(?:\r?\n|$)/) || [, ""])[1];
-        const location = (ev.match(/LOCATION[^:]*:(.+?)(?:\r?\n|$)/) || [, ""])[1];
-        const desc = (ev.match(/DESCRIPTION[^:]*:(.+?)(?:\r?\n|$)/) || [, ""])[1];
-        const blob = `${summary} ${location} ${desc}`;
-
-        for (const v of venueNames) {
-            if (blob.includes(v)) found.add(v);
-        }
-    }
-
-    // 何も取れなかったら例外にしてフォールバックさせる
-    const arr = Array.from(found);
-    if (arr.length === 0) throw new Error("開催場がICSから取れない");
-    return arr;
-}
-
 async function getUpcomingVenuesFromJraJson() {
     // data/jra/YYYYMM.json を見て「次の土日」の開催地を返す（A/B/Cの順に並ぶことが多い想定）
     const sat = nextDow(6);
@@ -697,7 +652,7 @@ async function initVenueSelector() {
     } catch (e1) {
         console.log('開催地JSON取得失敗。ICSにフォールバック:', e1);
         try {
-            venues = await getUpcomingVenuesFromICS();
+            venues = await getUpcomingVenuesFromJraJson(); // JRA JSONでフィルタリングして優先表示
         } catch (e2) {
             console.log('開催地ICS取得失敗。月別にフォールバック:', e2);
             venues = getCurrentMonthVenues();
