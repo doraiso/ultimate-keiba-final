@@ -36,135 +36,146 @@ const monthlyVenues = {
 };
 
 function ymdJstParts(date) {
-  const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000);
-  const y = jst.getUTCFullYear();
-  const m = String(jst.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(jst.getUTCDate()).padStart(2, "0");
-  return { y, m, d, yyyymm: `${y}${m}` };
+    const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000);
+    const y = jst.getUTCFullYear();
+    const m = String(jst.getUTCMonth() + 1).padStart(2, "0");
+    const d = String(jst.getUTCDate()).padStart(2, "0");
+    return { y, m, d, yyyymm: `${y}${m}` };
 }
 
 function venueFromRaceName(name) {
-  // "2回小倉1日" -> "小倉"
-  const s = String(name);
-  const parts = s.split("回");
-  const tail = (parts[1] ?? s);
-  // "小倉1日" -> "小倉"（数字と「○日」を落とす）
-  return tail.replace(/[0-9０-９]/g, "").replace(/日/g, "").trim();
+    // "2回小倉1日" -> "小倉"
+    const s = String(name);
+    const parts = s.split("回");
+    const tail = (parts[1] ?? s);
+    // "小倉1日" -> "小倉"（数字と「○日」を落とす）
+    return tail.replace(/[0-9０-９]/g, "").replace(/日/g, "").trim();
 }
 
 async function getVenuesForDateFromJraJson(date) {
-  const { yyyymm, d } = ymdJstParts(date);
+    const { yyyymm, d } = ymdJstParts(date);
 
-  const res = await fetch(`data/jra/${yyyymm}.json`, { cache: "no-store" });
-  if (!res.ok) return []; // まだファイルが無い等
+    const res = await fetch(`data/jra/${yyyymm}.json`, { cache: "no-store" });
+    if (!res.ok) return []; // まだファイルが無い等
 
-  const json = await res.json();
-  const dayNum = Number(d);
+    const json = await res.json();
+    const dayNum = Number(d);
 
-  const day = json?.[0]?.data?.find(x => Number(x.date) === dayNum);
-  if (!day) return [];
+    const day = json?.[0]?.data?.find(x => Number(x.date) === dayNum);
+    if (!day) return [];
 
-  const races = day?.info?.[0]?.race ?? [];
-  const venues = races
-    .map(r => venueFromRaceName(r.name))
-    .filter(v => v);
+    const races = day?.info?.[0]?.race ?? [];
+    const venues = races
+        .map(r => venueFromRaceName(r.name))
+        .filter(v => v);
 
-  return [...new Set(venues)];
+    return [...new Set(venues)];
 }
 
 async function getGradeRacesForDateFromJraJson(date) {
-  const { yyyymm, d } = ymdJstParts(date);
+    const { yyyymm, d } = ymdJstParts(date);
 
-  const res = await fetch(`data/jra/${yyyymm}.json`, { cache: "no-store" });
-  if (!res.ok) return [];
+    const res = await fetch(`data/jra/${yyyymm}.json`, { cache: "no-store" });
+    if (!res.ok) return [];
 
-  const json = await res.json();
-  const day = json?.[0]?.data?.find(x => Number(x.date) === Number(d));
-  if (!day) return [];
+    const json = await res.json();
+    const day = json?.[0]?.data?.find(x => Number(x.date) === Number(d));
+    if (!day) return [];
 
-  const info0 = day?.info?.[0];
-  const gradeRaces = info0?.gradeRace ?? [];
-  const races = info0?.race ?? []; // A/B/C場情報
+    const info0 = day?.info?.[0];
+    const gradeRaces = info0?.gradeRace ?? [];
+    const races = info0?.race ?? []; // A/B/C場情報
 
-  // gradeRace: { name, detail, grade, pos } みたいなのが来る想定
-  return gradeRaces.map(gr => {
-    const pos = Number(gr.pos); // 1..3
-    const venueNameRaw = races[pos - 1]?.name ?? "";
-    const venue = venueNameRaw ? venueFromRaceName(venueNameRaw) : "";
-    return {
-      venue,
-      name: gr.name || gr.detail || "",
-      grade: gr.grade || "",
-    };
-  }).filter(x => x.name);
+    // gradeRace: { name, detail, grade, pos } みたいなのが来る想定
+    return gradeRaces.map(gr => {
+        const pos = Number(gr.pos); // 1..3
+        const venueNameRaw = races[pos - 1]?.name ?? "";
+        const venue = venueNameRaw ? venueFromRaceName(venueNameRaw) : "";
+        return {
+            venue,
+            name: gr.name || gr.detail || "",
+            grade: gr.grade || "",
+            date: toYmdJst(date), // ← 追加（YYYYMMDD）
+        };
+    }).filter(x => x.name);
 }
 
 async function getWeekendGradeRacesFromJraJson(base = new Date()) {
-  const day = base.getDay();
-  const sat = new Date(base);
-  sat.setDate(base.getDate() + ((6 - day + 7) % 7));
-  const sun = new Date(sat);
-  sun.setDate(sat.getDate() + 1);
+    const day = base.getDay();
+    const sat = new Date(base);
+    sat.setDate(base.getDate() + ((6 - day + 7) % 7));
+    const sun = new Date(sat);
+    sun.setDate(sat.getDate() + 1);
 
-  const [satGR, sunGR] = await Promise.all([
-    getGradeRacesForDateFromJraJson(sat),
-    getGradeRacesForDateFromJraJson(sun),
-  ]);
+    const [satGR, sunGR] = await Promise.all([
+        getGradeRacesForDateFromJraJson(sat),
+        getGradeRacesForDateFromJraJson(sun),
+    ]);
 
-  // 同じ重賞が重複しないように軽くユニーク化
-  const key = (x) => `${x.venue}|${x.grade}|${x.name}`;
-  const map = new Map();
-  [...satGR, ...sunGR].forEach(x => map.set(key(x), x));
-  return [...map.values()];
+    // 同じ重賞が重複しないように軽くユニーク化
+    const key = (x) => `${x.venue}|${x.grade}|${x.name}|${x.date}`;
+    const map = new Map();
+    [...satGR, ...sunGR].forEach(x => map.set(key(x), x));
+    return Array.from(map.values());
 }
 
 function getNextWeekendDates(base = new Date()) {
-  const day = base.getDay(); // 0=Sun
-  const sat = new Date(base);
-  sat.setDate(base.getDate() + ((6 - day + 7) % 7));
-  const sun = new Date(sat);
-  sun.setDate(sat.getDate() + 1);
-  return { sat, sun };
+    const day = base.getDay(); // 0=Sun
+    const sat = new Date(base);
+    sat.setDate(base.getDate() + ((6 - day + 7) % 7));
+    const sun = new Date(sat);
+    sun.setDate(sat.getDate() + 1);
+    return { sat, sun };
 }
 
 function getSelectedDate() {
-  const { sat, sun } = getNextWeekendDates(new Date());
-  const v = document.querySelector('input[name="raceDay"]:checked')?.value || "sat";
-  return v === "sun" ? sun : sat;
+    const { sat, sun } = getNextWeekendDates(new Date());
+    const v = document.querySelector('input[name="raceDay"]:checked')?.value || "sat";
+    return v === "sun" ? sun : sat;
+}
+
+function getMainRacePivotDate(now = new Date()) {
+    const { sat, sun } = getNextWeekendDates(now); // sat/sun は 0:00 で返ってくる :contentReference[oaicite:2]{index=2}
+
+    // 土曜 16:00 を締切にする
+    const satCutoff = new Date(sat);
+    satCutoff.setHours(16, 0, 0, 0);
+
+    // まだ土曜16:00より前なら土曜、以降は日曜
+    return now.getTime() < satCutoff.getTime() ? sat : sun;
 }
 
 
-
 async function renderWeekendGradeRaces() {
-  const list = await getWeekendGradeRacesFromJraJson(new Date());
-  const el = document.querySelector("#weekendGradeRaces");
-  if (!el) return;
+    const list = await getWeekendGradeRacesFromJraJson(new Date());
+    const el = document.querySelector("#weekendGradeRaces");
+    if (!el) return;
 
-  if (list.length === 0) {
-    el.textContent = "今週末の重賞：なし";
-    return;
-  }
+    if (list.length === 0) {
+        el.textContent = "今週末の重賞：なし";
+        return;
+    }
 
-  // 例：中山 G2 弥生賞 / 阪神 G3 ○○
-  el.textContent =
-    "今週末の重賞： " +
-    list.map(x => `${x.venue} ${x.grade} ${x.name}`).join(" / ");
+    // 例：中山 G2 弥生賞 / 阪神 G3 ○○
+    el.textContent =
+        "今週末の重賞： " +
+        list.map(x => `${x.venue} ${x.grade} ${x.name}`).join(" / ");
 }
 
 // 週末表示用：土日を合算（片方だけ出る変則対策）
 async function getWeekendVenuesFromJraJson(base = new Date()) {
-  const day = base.getDay(); // 0=Sun..6=Sat
-  const sat = new Date(base);
-  sat.setDate(base.getDate() + ((6 - day + 7) % 7));
-  const sun = new Date(sat);
-  sun.setDate(sat.getDate() + 1);
+    const day = base.getDay(); // 0=Sun..6=Sat
+    const sat = new Date(base);
+    sat.setDate(base.getDate() + ((6 - day + 7) % 7));
+    const sun = new Date(sat);
+    sun.setDate(sat.getDate() + 1);
 
-  const [vSat, vSun] = await Promise.all([
-    getVenuesForDateFromJraJson(sat),
-    getVenuesForDateFromJraJson(sun),
-  ]);
+    const [vSat, vSun] = await Promise.all([
+        getVenuesForDateFromJraJson(sat),
+        getVenuesForDateFromJraJson(sun),
+    ]);
 
-  return [...new Set([...vSat, ...vSun])];
+    return [...new Set([...vSat, ...vSun])];
 }
 
 function getCurrentMonthVenues() {
@@ -300,277 +311,23 @@ function calculateDaysUntil(dateStr) {
 
 
 function nextDow(dow) { // 0=日 .. 6=土（今日を含む）
-  const d = new Date();
-  const diff = (dow - d.getDay() + 7) % 7; // 0なら今日
-  d.setDate(d.getDate() + diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
+    const d = new Date();
+    const diff = (dow - d.getDay() + 7) % 7; // 0なら今日
+    d.setDate(d.getDate() + diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
 }
 
-async function getMainRaceNameFromICS(venue) {
-    try {
-        const currentYear = new Date().getFullYear();
-        const response = await fetch(`data/jrarace${currentYear}.ics`);
-        if (!response.ok) throw new Error('ICSファイルなし');
+async function getMainRaceName(date = new Date()) {
+    const races = await getWeekendGradeRacesFromJraJson(date);
 
-        const icsText = await response.text();
-        const today = new Date();
-        // const currentYear = today.getFullYear();
-        const todayStr = [
-            today.getFullYear(),
-            String(today.getMonth() + 1).padStart(2, '0'),
-            String(today.getDate()).padStart(2, '0'),
-        ].join('');
+    if (!races.length) return null;
 
-        // いったん最短を選ぶ
-        // foundRaces.sort((a, b) => a.date.localeCompare(b.date));
-        // const targetDateStr = toYmd(nextDow(6));
-        // let selectedRace =
-        //     foundRaces.find(r => r.date >= targetDateStr) || foundRaces[0];
+    const priority = { G1: 1, G2: 2, G3: 3 };
 
-        // // 土曜で、最短が「今日」なら “次” にスキップ（＝日曜の予告）
-        // const isSaturday = today.getDay() === 6;
-        // if (isSaturday && selectedRace.date === todayStr && foundRaces.length > 1) {
-        //     selectedRace = foundRaces[1];
-        // }
+    races.sort((a, b) => priority[a.grade] - priority[b.grade]);
 
-        // const daysUntil = calculateDaysUntil(selectedRace.date);
-
-        const currentMonth = String(today.getMonth() + 1).padStart(2, '0');
-
-        console.log(`=== ${venue}のメインレース検索 (${currentYear}年${currentMonth}月) ===`);
-
-        const events = icsText.split('BEGIN:VEVENT');
-        let foundRaces = [];
-
-        // 「次の土日」だけを対象にする（ローカル開催で将来の重賞を拾わないため）
-        const sat = nextDow(6);
-        const sun = addDays(sat, 1);
-        const targetDates = new Set([toYmd(sat), toYmd(sun)]); // YYYYMMDD
-
-
-        for (const event of events) {
-            if (event.trim().length === 0) continue;
-
-            // 日付取得
-            const dateMatch = event.match(/DTSTART;VALUE=DATE:(\d{8})/);
-            if (!dateMatch) continue;
-
-            const eventDateStr = dateMatch[1];
-
-            // 現在日以降かチェック
-            if (!isFutureOrToday(eventDateStr)) {
-                continue;
-            }
-
-
-            // 次の土日以外は対象外
-            if (!targetDates.has(eventDateStr)) {
-                continue;
-            }
-            // 年月チェック
-            const eventYear = eventDateStr.substring(0, 4);
-            const eventMonth = eventDateStr.substring(4, 6);
-
-            // if (eventYear !== String(currentYear) || eventMonth !== currentMonth) {
-            //     continue;
-            // }
-
-            // サマリー取得
-            const summaryMatch = event.match(/SUMMARY:(.+?)\r?\n/);
-            if (!summaryMatch) continue;
-
-            const summary = summaryMatch[1].trim();
-
-            // ロケーション取得
-            const locationMatch = event.match(/LOCATION:(.+?)\r?\n/);
-            const location = locationMatch ? locationMatch[1].trim() : '';
-
-            // 開催地チェック（より寛容に）
-            const isVenueEvent =
-                location.includes(venue) ||
-                summary.includes(venue) ||
-                (venue === '京都' && location.includes('Kyoto')) ||
-                (venue === '東京' && location.includes('Tokyo')) ||
-                (venue === '阪神' && location.includes('Hanshin'));
-
-            if (isVenueEvent) {
-                console.log(`  発見: ${eventDateStr} - ${summary}`);
-                console.log(`    ロケーション: ${location}`);
-
-                // グレードレースかチェック（改良版）
-                if (isGradeRace(event, summary)) {
-                    console.log(`    ✓ グレードレース判定: true`);
-
-                    const raceName = extractRaceNameFromICS(summary, venue);
-
-                    if (raceName && raceName.length > 1) {
-                        console.log(`    ✓ レース名抽出: ${raceName}`);
-
-                        // グレードを取得（表示用）
-                        let grade = 'G?';
-
-                        if (event.includes('GIII') || summary.includes('(GIII)')) {
-                            grade = 'GIII';
-                        } else if (event.includes('GII') || summary.includes('(GII)')) {
-                            grade = 'GII';
-                        } else if (
-                            event.includes('G1') ||
-                            event.includes('GI') ||
-                            summary.includes('(G1)') ||
-                            summary.includes('(GI)')
-                        ) {
-                            grade = 'GI';
-                        }
-
-
-                        foundRaces.push({
-                            name: raceName,
-                            date: eventDateStr,
-                            summary: summary,
-                            location: location,
-                            grade: grade,
-                            year: eventYear,
-                            month: eventMonth,
-                            day: eventDateStr.substring(6, 8)
-                        });
-                    }
-                } else {
-                    console.log(`    ✗ グレードレース判定: false`);
-                }
-            }
-        }
-
-        console.log(`\n=== 検索結果 ===`);
-        console.log(`見つかったレース数: ${foundRaces.length}`);
-
-        if (foundRaces.length > 0) {
-            foundRaces.forEach((race, i) => {
-                console.log(`${i + 1}. ${race.date}: ${race.name} (${race.grade}) - ${race.summary}`);
-            });
-
-            // 日付順にソート（最も近い未来）
-            foundRaces.sort((a, b) => a.date.localeCompare(b.date));
-
-            const selectedRace = foundRaces[0];
-            const daysUntil = calculateDaysUntil(selectedRace.date);
-
-            console.log(`\n✓ 選択レース: ${selectedRace.name} (${selectedRace.grade})`);
-            console.log(`  開催日: ${selectedRace.date} (あと${daysUntil}日)`);
-            console.log(`  完全名: ${selectedRace.summary}`);
-
-            return {
-                name: selectedRace.name,
-                date: selectedRace.date,
-                daysUntil: daysUntil,
-                grade: selectedRace.grade,
-                fullName: selectedRace.summary
-            };
-        }
-
-        console.log('✗ 今月のレース見つからず');
-        return null;
-
-    } catch (error) {
-        console.log('ICSからのメインレース取得失敗:', error);
-        return null;
-    }
-}
-
-// ICS用の特別なレース名抽出
-function extractRaceNameFromICS(summary, venue) {
-    console.log(`  ICS抽出: "${summary}"`);
-
-    // 1. 括弧内のグレード表記を除去（ASCII/ローマ数字/数字/全角括弧対応）
-    let raceName = summary
-        .replace(/\s*[\(（]\s*(J・)?\s*G(?:1|I{1,3}|[ⅠⅡⅢ])\s*[\)）]\s*/g, '');
-
-    // 2. 開催地名を除去（ただし「東京新聞杯」のようなものは保持）
-    // まず開催地名で始まる場合をチェック
-    if (raceName.startsWith(venue)) {
-        // "東京新聞杯" のような場合は開催地名を保持
-        const afterVenue = raceName.substring(venue.length);
-        if (afterVenue.match(/^[^\\s(]/)) {
-            // 開催地名がレース名の一部の場合は保持
-            console.log(`    開催地名がレース名の一部として保持: "${raceName}"`);
-        } else {
-            // 開催地名のみを除去
-            raceName = raceName.replace(new RegExp(`^${venue}\\s*`), '');
-        }
-    }
-
-    // 3. 余分な空白と記号を除去
-    raceName = raceName
-        .replace(/\s+/g, ' ')
-        .replace(/^\s+|\s+$/g, '')
-        .replace(/^[:\-]\s*|\s*[:\-]$/g, '');
-
-    console.log(`    結果: "${raceName}"`);
-    return raceName;
-}
-
-function getNextMainRaceDefault(venue) {
-    const today = new Date();
-    const currentMonth = String(today.getMonth() + 1).padStart(2, '0');
-
-    // 開催地と月に応じた次回メインレース
-    const nextMainRaces = {
-        "東京": {
-            "01": { name: "フェブラリーステークス", date: "20250202" },
-            "02": { name: "フェブラリーステークス", date: "20250202" },
-            "03": { name: "中山記念", date: "20250302" },
-            "04": { name: "桜花賞", date: "20250413" },
-            "05": { name: "NHKマイルカップ", date: "20250511" },
-            "06": { name: "安田記念", date: "20250601" },
-            "07": { name: "宝塚記念", date: "20250629" },
-            "08": { name: "キーンランドカップ", date: "20250830" },
-            "09": { name: "セントライト記念", date: "20250921" },
-            "10": { name: "天皇賞(秋)", date: "20251026" },
-            "11": { name: "ジャパンカップ", date: "20251130" },
-            "12": { name: "有馬記念", date: "20251228" }
-        },
-        "中山": {
-            "01": { name: "中山金杯", date: "20250105" },
-            "02": { name: "フェブラリーステークス", date: "20250202" },
-            "03": { name: "中山記念", date: "20250302" },
-            "04": { name: "皐月賞", date: "20250413" },
-            "05": { name: "NHKマイルカップ", date: "20250511" },
-            "06": { name: "オークス", date: "20250601" },
-            "07": { name: "帝王賞", date: "20250629" },
-            "08": { name: "キーンランドカップ", date: "20250830" },
-            "09": { name: "セントライト記念", date: "20250921" },
-            "10": { name: "天皇賞(秋)", date: "20251026" },
-            "11": { name: "マイルCS", date: "20251116" },
-            "12": { name: "有馬記念", date: "20251228" }
-        },
-        // ... 他の開催地も同様に
-    };
-
-    let nextRace = null;
-
-    // 現在月以降のレースを探す
-    for (let m = parseInt(currentMonth); m <= 12; m++) {
-        const monthKey = String(m).padStart(2, '0');
-        if (nextMainRaces[venue] && nextMainRaces[venue][monthKey]) {
-            const race = nextMainRaces[venue][monthKey];
-            if (isFutureOrToday(race.date)) {
-                nextRace = race;
-                break;
-            }
-        }
-    }
-
-    if (!nextRace) {
-        // 見つからない場合はデフォルト
-        nextRace = {
-            name: fallbackMainRaces[currentMonth] || "メインレース",
-            date: today.toISOString().replace(/-/g, '').substring(0, 8),
-            daysUntil: 0
-        };
-    }
-
-    nextRace.daysUntil = calculateDaysUntil(nextRace.date);
-    return nextRace;
+    return races[0].name;
 }
 
 function updateSpinButtonState() {
@@ -596,49 +353,6 @@ function calculateDaysUntil(dateStr) {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     return Math.max(0, diffDays); // 過去の場合は0
-}
-
-// 開催地と月に応じたデフォルトレース名
-function getDefaultRaceForVenueAndMonth(venue, month) {
-    const venueRaceMap = {
-        "東京": {
-            "01": "中山金杯", "02": "フェブラリーステークス", "03": "中山記念",
-            "04": "桜花賞", "05": "NHKマイルカップ", "06": "安田記念",
-            "07": "宝塚記念", "08": "キーンランドカップ", "09": "セントライト記念",
-            "10": "天皇賞(秋)", "11": "ジャパンカップ", "12": "有馬記念"
-        },
-        "中山": {
-            "01": "中山金杯", "02": "フェブラリーステークス", "03": "中山記念",
-            "04": "皐月賞", "05": "NHKマイルカップ", "06": "オークス",
-            "07": "帝王賞", "08": "キーンランドカップ", "09": "セントライト記念",
-            "10": "天皇賞(秋)", "11": "マイルチャンピオンシップ", "12": "有馬記念"
-        },
-        "京都": {
-            "01": "京都金杯", "02": "京都記念", "03": "大阪杯",
-            "04": "桜花賞", "05": "皐月賞", "06": "安田記念",
-            "07": "宝塚記念", "08": "スプリンターズステークス", "09": "秋華賞",
-            "10": "菊花賞", "11": "マイルチャンピオンシップ", "12": "阪神ジュベナイル"
-        },
-        "阪神": {
-            "01": "阪神金杯", "02": "京都記念", "03": "大阪杯",
-            "04": "桜花賞", "05": "皐月賞", "06": "安田記念",
-            "07": "宝塚記念", "08": "スプリンターズステークス", "09": "秋華賞",
-            "10": "菊花賞", "11": "マイルチャンピオンシップ", "12": "阪神ジュベナイル"
-        },
-        "中京": {
-            "01": "中京記念", "02": "小倉大賞典", "03": "中京記念",
-            "04": "高松宮記念", "05": "NHKマイルカップ", "06": "安田記念",
-            "07": "宝塚記念", "08": "スプリンターズステークス", "09": "セントライト記念",
-            "10": "菊花賞", "11": "マイルチャンピオンシップ", "12": "チャンピオンズカップ"
-        }
-    };
-
-    if (venueRaceMap[venue] && venueRaceMap[venue][month]) {
-        return venueRaceMap[venue][month];
-    }
-
-    // デフォルトのフォールバック
-    return fallbackMainRaces[month] || `${venue}メインレース`;
 }
 
 async function initVenueSelector() {
@@ -692,6 +406,51 @@ async function initVenueSelector() {
     if (typeof addTestButton === 'function') addTestButton();
 }
 
+async function getMainRaceInfoForVenue(venue, pivotDate = new Date()) {
+    const races = await getWeekendGradeRacesFromJraJson(pivotDate); // Date前提で getDay() を呼ぶ :contentReference[oaicite:5]{index=5}
+    const list = races.filter(r => r.venue === venue);
+
+    if (list.length === 0) {
+        return {
+            name: "メインレース",
+            grade: "",
+            date: "",
+            daysUntil: 0
+        };
+    }
+
+    const preferred = toYmdJst(pivotDate);
+    const priority = { G1: 1, G2: 2, G3: 3 };
+
+    list.sort((a, b) => {
+        const ad = String(a.date || "");
+        const bd = String(b.date || "");
+
+        // ① pivotDate と同じ日付を最優先
+        const aPref = ad === preferred ? 0 : 1;
+        const bPref = bd === preferred ? 0 : 1;
+        if (aPref !== bPref) return aPref - bPref;
+
+        // ② 同日内はグレード優先
+        const pa = priority[a.grade] ?? 99;
+        const pb = priority[b.grade] ?? 99;
+        if (pa !== pb) return pa - pb;
+
+        // ③ 同条件なら日付→名前
+        const cmp = ad.localeCompare(bd);
+        if (cmp !== 0) return cmp;
+        return String(a.name).localeCompare(String(b.name));
+    });
+
+    const main = list[0];
+    return {
+        name: main.name,
+        grade: main.grade,
+        date: main.date,
+        daysUntil: calculateDaysUntil(main.date),
+    };
+}
+
 async function updateRaceList(place) {
     const raceSelector = document.getElementById('race-selector');
 
@@ -703,7 +462,9 @@ async function updateRaceList(place) {
     raceSelector.innerHTML = '<option value="">レースを読み込み中...</option>';
 
     try {
-        const raceInfo = await getMainRaceNameFromICS(place);
+        //const raceInfo = await getMainRaceName(place);
+        const pivotDate = getMainRacePivotDate(new Date());
+        const raceInfo = await getMainRaceInfoForVenue(place, pivotDate);
 
         raceSelector.innerHTML = '<option value="">レースを選択...</option>';
 
@@ -909,73 +670,6 @@ function changeTotal(n) {
     input.value = Math.min(18, Math.max(2, val));
 }
 
-async function debugICS() {
-    try {
-        const currentYear = new Date().getFullYear();
-        const response = await fetch(`data/jrarace${currentYear}.ics`);
-        const icsText = await response.text();
-
-        console.log('=== ICSファイル内容サンプル ===');
-        const lines = icsText.split('\n').slice(0, 30); // 最初の30行を表示
-        lines.forEach(line => console.log(line));
-
-        // GI/G1レースを探す
-        const events = icsText.split('BEGIN:VEVENT');
-        const giEvents = events.filter(event =>
-            event.includes('G1') || event.includes('GI') ||
-            event.includes('GRADE1') || event.includes('グランプリ')
-        );
-
-        console.log(`\n=== GIレース数: ${giEvents.length} ===`);
-        giEvents.slice(0, 3).forEach((event, i) => {
-            console.log(`\nGIレース ${i + 1}:`);
-            const lines = event.split('\n').filter(line =>
-                line.includes('SUMMARY') || line.includes('LOCATION') ||
-                line.includes('DTSTART') || line.includes('DESCRIPTION')
-            );
-            lines.forEach(line => console.log(line));
-        });
-
-    } catch (error) {
-        console.log('デバッグ失敗:', error);
-    }
-}
-
-// ICSファイルが正しく取得できない場合のテスト用
-async function testWithMockData() {
-    console.log('=== テストモード（ICSなし）===');
-
-    const venue = document.getElementById('place-selector').value;
-    const month = String(new Date().getMonth() + 1).padStart(2, '0');
-
-    if (venue) {
-        const raceName = getDefaultRaceForVenueAndMonth(venue, month);
-        console.log(`開催地: ${venue}, 月: ${month}, レース名: ${raceName}`);
-
-        // テスト表示
-        const raceSelector = document.getElementById('race-selector');
-        raceSelector.innerHTML = '<option value="">レースを選択...</option>';
-
-        for (let i = 1; i <= 12; i++) {
-            const option = document.createElement('option');
-            option.value = 16;
-
-            if (i === 11) {
-                option.text = `11R 🏆 ${raceName} (テスト)`;
-                option.style.fontWeight = 'bold';
-                option.style.color = '#e74c3c';
-                option.dataset.isMain = 'true';
-                option.dataset.raceName = raceName;
-            } else {
-                option.text = `${i}R テストレース`;
-                option.dataset.isMain = 'false';
-            }
-
-            raceSelector.appendChild(option);
-        }
-    }
-}
-
 async function debugCurrentDate() {
     const today = new Date();
     console.log('=== 現在の日付情報 ===');
@@ -990,54 +684,6 @@ async function debugCurrentDate() {
 // 実行
 debugCurrentDate();
 
-async function debugICSDateFormats() {
-    try {
-        const currentYear = new Date().getFullYear();
-        const response = await fetch(`data/jrarace${currentYear}.ics`);
-        const icsText = await response.text();
-
-        console.log('=== ICS日付フォーマット確認 ===');
-
-        // 最初の10イベントの日付を表示
-        const events = icsText.split('BEGIN:VEVENT').slice(0, 10);
-
-        events.forEach((event, index) => {
-            // 様々な日付フォーマットを試す
-            const datePatterns = [
-                /DTSTART[:;](\d{8})/,          // DTSTART:20240201
-                /DTSTART;VALUE=DATE:(\d{8})/,  // DTSTART;VALUE=DATE:20240201
-                /DTSTART;TZID=Asia\/Tokyo:(\d{8})/, // タイムゾーン付き
-                /DTSTART:(\d{4}-\d{2}-\d{2})/, // DTSTART:2024-02-01
-                /DTSTART:(\d{4})(\d{2})(\d{2})/, // 別形式
-            ];
-
-            let foundDate = null;
-            let formatUsed = '';
-
-            for (const pattern of datePatterns) {
-                const match = event.match(pattern);
-                if (match) {
-                    foundDate = match[1];
-                    formatUsed = pattern.toString();
-                    break;
-                }
-            }
-
-            if (foundDate) {
-                console.log(`イベント${index + 1}: ${foundDate} (フォーマット: ${formatUsed})`);
-
-                // サマリーも表示
-                const summaryMatch = event.match(/SUMMARY[^:]*:(.+?)(?:\r?\n|$)/);
-                if (summaryMatch) {
-                    console.log(`  サマリー: ${summaryMatch[1].trim()}`);
-                }
-            }
-        });
-
-    } catch (error) {
-        console.log('デバッグ失敗:', error);
-    }
-}
 
 function normalizeDate(dateStr) {
     // 様々なフォーマットをYYYYMMDDに統一
@@ -1569,21 +1215,6 @@ function testExtraction() {
 // 実行
 testExtraction();
 
-async function testVenueRaces() {
-    const venues = ['東京', '京都', '中山', '阪神'];
-
-    for (const venue of venues) {
-        console.log(`\n\n=== ${venue}のレーステスト ===`);
-        await debugICSForVenue(venue);
-
-        const raceInfo = await getMainRaceNameFromICS(venue);
-        console.log(`\n最終選択: ${raceInfo.name} (${raceInfo.grade})`);
-    }
-}
-
-// 実行
-testVenueRaces();
-
 function isFutureOrToday(dateStr) {
     const eventDate = parseICSDate(dateStr);
     const now = new Date();
@@ -1610,15 +1241,7 @@ function parseICSDate(dateStr) {
     return new Date(year, month, day);
 }
 
-// ボタンを追加してテストできるように
-// function addTestButton() {
-//     const container = document.querySelector('.container');
-//     const testBtn = document.createElement('button');
-//     testBtn.textContent = 'テストモード（ICSなし）';
-//     testBtn.style.cssText = 'margin-top: 10px; padding: 5px 10px; background: #666; color: white; border: none; border-radius: 4px;';
-//     testBtn.onclick = testWithMockData;
-//     container.appendChild(testBtn);
-// }
+
 
 // レース情報を詳細に表示
 function displayRaceDebugInfo(raceInfo) {
@@ -1653,58 +1276,6 @@ function displayRaceDebugInfo(raceInfo) {
     document.body.appendChild(debugDiv);
 }
 
-async function debugICSForVenue(venue) {
-    try {
-        const currentYear = new Date().getFullYear();
-        const response = await fetch(`data/jrarace${currentYear}.ics`);
-        const icsText = await response.text();
-
-        console.log(`=== ${venue}のICSイベント分析 ===`);
-
-        const events = icsText.split('BEGIN:VEVENT');
-        const today = new Date();
-        // const currentYear = today.getFullYear();
-        const currentMonth = String(today.getMonth() + 1).padStart(2, '0');
-
-        events.forEach((event, index) => {
-            // 日付取得
-            const dateMatch = event.match(/DTSTART;VALUE=DATE:(\d{8})/);
-            if (!dateMatch) return;
-
-            const eventDateStr = dateMatch[1];
-            const eventYear = eventDateStr.substring(0, 4);
-            const eventMonth = eventDateStr.substring(4, 6);
-
-            // 今月のイベントのみ
-            if (eventYear !== String(currentYear) || eventMonth !== currentMonth) {
-                return;
-            }
-
-            // サマリー取得
-            const summaryMatch = event.match(/SUMMARY:(.+?)\r?\n/);
-            if (!summaryMatch) return;
-
-            const summary = summaryMatch[1].trim();
-
-            // 開催地チェック
-            const locationMatch = event.match(/LOCATION:(.+?)\r?\n/);
-            const location = locationMatch ? locationMatch[1].trim() : '';
-
-            if (location.includes(venue) || summary.includes(venue)) {
-                console.log(`${eventDateStr}: ${summary}`);
-                console.log(`  ロケーション: ${location}`);
-                console.log(`  G表記: ${event.includes('G') ? 'あり' : 'なし'}`);
-                console.log(`  G1/GI: ${event.includes('G1') || event.includes('GI') ? 'あり' : 'なし'}`);
-                console.log(`  G2/GII: ${event.includes('GII') ? 'あり' : 'なし'}`);
-                console.log(`  G3/GIII: ${event.includes('GIII') ? 'あり' : 'なし'}`);
-            }
-        });
-
-    } catch (error) {
-        console.log('デバッグ失敗:', error);
-    }
-}
-
 function isGradeRace(event, summary) {
     // G表記のチェック（より包括的に）
     const hasGradeNotation =
@@ -1729,9 +1300,6 @@ function isGradeRace(event, summary) {
     // グレード表記があるか、主要なレース名パターンがある場合
     return hasGradeNotation || isMajorRace;
 }
-
-// 実行
-debugICSForVenue('京都');
 
 function removeVenueNameSafely(text, venue) {
     console.log(`開催地除去前: "${text}"`);
@@ -1777,8 +1345,6 @@ function removeVenueNameSafely(text, venue) {
 // console.log(`元のsummary: "${summary}"`);
 // console.log(`venuePatterns除去後: "${raceName}"`);
 
-// ページ読み込み後に実行
-document.addEventListener('DOMContentLoaded', debugICS);
 
 // ページ読み込み時に実行
 document.addEventListener('DOMContentLoaded', function () {
