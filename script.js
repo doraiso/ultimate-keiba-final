@@ -219,11 +219,6 @@ function isFutureOrToday(dateStr) {
     return false;
 }
 
-// 表示用（今の仕様維持したいなら）
-function calculateDaysUntil(dateStr) {
-    return Math.max(0, calculateDaysUntilRaw(dateStr));
-}
-
 
 function nextDow(dow) { // 0=日 .. 6=土（今日を含む）
     const d = new Date();
