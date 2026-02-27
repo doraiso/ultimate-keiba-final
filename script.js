@@ -7,19 +7,6 @@ const statusMessages = [
     "最終的な『態度』を決定しています..."
 ];
 
-const venueSettings = {
-    "東京": { max: 18, min: 18 },
-    "中山": { max: 18, min: 18 },
-    "京都": { max: 18, min: 18 },
-    "阪神": { max: 18, min: 18 },
-    "中京": { max: 18, min: 18 },
-    "小倉": { max: 18, min: 18 },
-    "新潟": { max: 18, min: 18 },
-    "福島": { max: 18, min: 18 },
-    "函館": { max: 18, min: 18 },
-    "札幌": { max: 18, min: 18 }
-};
-
 const monthlyVenues = {
     1: ['中山', '京都'],
     2: ['東京', '阪神', '小倉'],
