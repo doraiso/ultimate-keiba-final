@@ -316,21 +316,26 @@ async function initVenueSelector() {
     if (typeof addTestButton === 'function') addTestButton();
 }
 
+function gradeRank(gradeRaw) {
+    const g = String(gradeRaw || "").trim().toUpperCase();
+    const m = g.match(/(?:J[・\.]?)?\s*G\s*([123])/);
+    return m ? Number(m[1]) : 99; // G1=1, G2=2, G3=3
+}
+
+function isJumpGrade(gradeRaw) {
+    const g = String(gradeRaw || "").trim().toUpperCase();
+    return /^J(?:[・\.]?\s*)?G\s*[123]/.test(g); // J・G2 / JG2 / J G2 / J.G2
+}
+
 async function getMainRaceInfoForVenue(venue, pivotDate = new Date()) {
-    const races = await getWeekendGradeRacesFromJraJson(pivotDate); // Date前提で getDay() を呼ぶ :contentReference[oaicite:5]{index=5}
+    const races = await getWeekendGradeRacesFromJraJson(pivotDate);
     const list = races.filter(r => r.venue === venue);
 
     if (list.length === 0) {
-        return {
-            name: "メインレース",
-            grade: "",
-            date: "",
-            daysUntil: 0
-        };
+        return { name: "メインレース", grade: "", date: "", daysUntil: 0 };
     }
 
     const preferred = toYmdJst(pivotDate);
-    const priority = { G1: 1, G2: 2, G3: 3 };
 
     list.sort((a, b) => {
         const ad = String(a.date || "");
@@ -341,10 +346,15 @@ async function getMainRaceInfoForVenue(venue, pivotDate = new Date()) {
         const bPref = bd === preferred ? 0 : 1;
         if (aPref !== bPref) return aPref - bPref;
 
-        // ② 同日内はグレード優先
-        const pa = priority[a.grade] ?? 99;
-        const pb = priority[b.grade] ?? 99;
+        // ② 同日内はグレード優先（G1→G2→G3→その他）
+        const pa = gradeRank(a.grade);
+        const pb = gradeRank(b.grade);
         if (pa !== pb) return pa - pb;
+
+        // ②.5 同日・同格なら平地を優先（障害＝J を後ろへ）
+        const aIsJump = isJumpGrade(a.grade);
+        const bIsJump = isJumpGrade(b.grade);
+        if (aIsJump !== bIsJump) return aIsJump ? 1 : -1;
 
         // ③ 同条件なら日付→名前
         const cmp = ad.localeCompare(bd);
@@ -360,7 +370,6 @@ async function getMainRaceInfoForVenue(venue, pivotDate = new Date()) {
         daysUntil: calculateDaysUntil(main.date),
     };
 }
-
 async function updateRaceList(place) {
     const raceSelector = document.getElementById('race-selector');
 
