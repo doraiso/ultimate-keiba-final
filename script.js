@@ -364,66 +364,66 @@ async function getMainRaceInfoForVenue(venue, pivotDate = new Date()) {
 async function updateRaceList(place) {
     const raceSelector = document.getElementById('race-selector');
 
+    const setOptions = (html) => { raceSelector.innerHTML = html; };
+    const appendOption = (opt) => raceSelector.appendChild(opt);
+
+    const applyGradeStyle = (option, grade) => {
+        if (!grade) return;
+        if (grade.includes("G1")) option.style.color = "#d4af37";
+        else if (grade.includes("G2")) option.style.color = "#c0c0c0";
+        else if (grade.includes("G3")) option.style.color = "#cd7f32";
+    };
+
+    const buildDefaultRaceOptions = ({ mainRaceNumber = 11, mainLabel = "メインレース", raceInfo } = {}) => {
+        setOptions('<option value="">レースを選択...</option>');
+
+        for (let i = 1; i <= 12; i++) {
+            const option = document.createElement('option');
+            option.value = String(i);
+
+            const isMain = i === mainRaceNumber && !!raceInfo;
+            option.dataset.isMain = isMain ? "true" : "false";
+
+            if (isMain) {
+                const daysText = raceInfo.daysUntil > 0 ? ` (あと${raceInfo.daysUntil}日)` : ` (今日開催)`;
+                const gradeText = raceInfo.grade ? ` [${raceInfo.grade}]` : "";
+
+                option.text = `${i}R 🏆 ${raceInfo.name}${gradeText}${daysText}`;
+
+                option.dataset.raceName = raceInfo.name;
+                option.dataset.raceDate = raceInfo.date;
+                option.dataset.grade = raceInfo.grade || "G?";
+
+                applyGradeStyle(option, raceInfo.grade);
+            } else {
+                option.text = `${i}R${i === mainRaceNumber && !raceInfo ? ` ${mainLabel}` : ""}`;
+            }
+
+            appendOption(option);
+        }
+    };
+
     if (!place) {
-        raceSelector.innerHTML = '<option value="">先に開催地を選んでください</option>';
+        setOptions('<option value="">先に開催地を選んでください</option>');
         return;
     }
 
-    raceSelector.innerHTML = '<option value="">レースを読み込み中...</option>';
+    setOptions('<option value="">レースを読み込み中...</option>');
 
     try {
-        //const raceInfo = await getMainRaceName(place);
         const pivotDate = getMainRacePivotDate(new Date());
         const raceInfo = await getMainRaceInfoForVenue(place, pivotDate);
 
-        raceSelector.innerHTML = '<option value="">レースを選択...</option>';
+        // 「メイン=11R」を基本にしつつ、raceInfo側に mainRaceNumber があれば優先（12Rメイン等に対応）
+        const mainRaceNumber = Number(raceInfo?.mainRaceNumber ?? 11);
 
-        for (let i = 1; i <= 12; i++) {
-            const option = document.createElement('option');
-            option.value = String(i);
-
-            if (i === 11 && raceInfo) {
-                const daysText = raceInfo.daysUntil > 0 ? ` (あと${raceInfo.daysUntil}日)` : ` (今日開催)`;
-                const gradeText = raceInfo.grade ? ` [${raceInfo.grade}]` : '';
-                const g = (raceInfo.grade || "")
-                    .replace(/[Ｇ]/g, "G")
-                    .replace(/[Ⅰ]/g, "I")
-                    .replace(/[Ⅱ]/g, "II")
-                    .replace(/[Ⅲ]/g, "III")
-                    .replace(/G1/g, "GI")
-                    .replace(/G2/g, "GII")
-                    .replace(/G3/g, "GIII");
-
-                if (g === "GI") option.style.color = "#d4af37";
-                else if (g === "GII") option.style.color = "#c0c0c0";
-                else if (g === "GIII") option.style.color = "#cd7f32";
-
-                option.text = `11R 🏆 ${raceInfo.name}${gradeText}${daysText}`;
-                option.dataset.isMain = 'true';
-                option.dataset.raceName = raceInfo.name;
-                option.dataset.raceDate = raceInfo.date;
-                option.dataset.grade = raceInfo.grade || 'G?';
-            } else {
-                option.text = `${i}R`;
-                option.dataset.isMain = 'false';
-            }
-
-            raceSelector.appendChild(option);
-        }
+        buildDefaultRaceOptions({ mainRaceNumber, raceInfo });
     } catch (error) {
-        console.log('レースリスト更新エラー:', error);
-
-        raceSelector.innerHTML = '<option value="">レースを選択...</option>';
-        for (let i = 1; i <= 12; i++) {
-            const option = document.createElement('option');
-            option.value = String(i);
-            option.text = `${i}R${i === 11 ? ' メインレース' : ''}`;
-            option.dataset.isMain = i === 11 ? 'true' : 'false';
-            raceSelector.appendChild(option);
-        }
+        console.log("レースリスト更新エラー:", error);
+        // 取得に失敗したら、従来どおり 11R をメイン扱いでフォールバック
+        buildDefaultRaceOptions({ mainRaceNumber: 11, raceInfo: null });
     }
 }
-
 
 function spin() {
     const total = Number(document.getElementById('total').value);
