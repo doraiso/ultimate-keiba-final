@@ -7,21 +7,6 @@ const statusMessages = [
     "最終的な『態度』を決定しています..."
 ];
 
-const monthlyVenues = {
-    1: ['中山', '京都'],
-    2: ['東京', '阪神', '小倉'],
-    3: ['中山', '中京', '阪神'],
-    4: ['東京', '福島'],
-    5: ['東京', '京都', '新潟'],
-    6: ['東京', '阪神'],
-    7: ['函館', '福島', '小倉'],
-    8: ['札幌', '新潟', '小倉'],
-    9: ['中山', '中京'],
-    10: ['東京', '京都', '新潟'],
-    11: ['東京', '福島'],
-    12: ['中山', '中京', '阪神']
-};
-
 function ymdJstParts(date) {
     const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000);
     const y = jst.getUTCFullYear();
@@ -165,12 +150,6 @@ async function getWeekendVenuesFromJraJson(base = new Date()) {
     return [...new Set([...vSat, ...vSun])];
 }
 
-function getCurrentMonthVenues() {
-    const currentMonth = new Date().getMonth() + 1;
-    return monthlyVenues[currentMonth] || ['東京', '中京', '小倉'];
-}
-
-
 function toYmd(d) {
     return [
         d.getFullYear(),
@@ -219,14 +198,6 @@ function isFutureOrToday(dateStr) {
     return false;
 }
 
-
-function nextDow(dow) { // 0=日 .. 6=土（今日を含む）
-    const d = new Date();
-    const diff = (dow - d.getDay() + 7) % 7; // 0なら今日
-    d.setDate(d.getDate() + diff);
-    d.setHours(0, 0, 0, 0);
-    return d;
-}
 
 async function getMainRaceName(date = new Date()) {
     const races = await getWeekendGradeRacesFromJraJson(date);
@@ -579,10 +550,6 @@ function showFinalResult(total, isMainRace, mainRaceName, grade = "G?") {
 }
 
 
-function syncTotal() {
-    // document.getElementById('total').value = document.getElementById('race-selector').value;
-}
-
 function changeTotal(n) {
     const input = document.getElementById('total');
     let val = parseInt(input.value) + n;
@@ -604,25 +571,6 @@ async function debugCurrentDate() {
 debugCurrentDate();
 
 
-function normalizeDate(dateStr) {
-    // 様々なフォーマットをYYYYMMDDに統一
-    if (!dateStr) return null;
-
-    // YYYYMMDD形式
-    if (/^\d{8}$/.test(dateStr)) {
-        return dateStr;
-    }
-
-    // YYYY-MM-DD形式
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-        return dateStr.replace(/-/g, '');
-    }
-
-    // その他はそのまま返す（解析できない）
-    console.warn(`不明な日付フォーマット: ${dateStr}`);
-    return dateStr;
-}
-
 // ページ読み込み時に現在の日付をチェック
 function testCurrentDate() {
     const now = new Date();
@@ -643,79 +591,6 @@ function testCurrentDate() {
 
 // 実行
 testCurrentDate();
-
-
-function cleanRaceName(name, venue) {
-    let cleaned = name
-        .replace(/\s*\(G[Ⅰ-Ⅲ1-3]\)/g, '')      // (GIII) を除去
-        .replace(/\s+G[Ⅰ-Ⅲ1-3]\s*$/g, '')      // 末尾の GIII を除去
-        .replace(/競馬/g, '')                   // 競馬を除去
-        .replace(/\s+/g, ' ')                   // 連続する空白を1つに
-        .replace(/^\s+|\s+$/g, '')              // 前後の空白を除去
-        .replace(/^[:\-\s]+|[:\-\s]+$/g, '');   // 前後の記号を除去
-
-    // 開催地名が先頭にある場合は保持（例: "東京新聞杯"）
-    // ただし、開催地名のみの場合は除去
-    if (cleaned.startsWith(venue) && cleaned !== venue) {
-        // "東京新聞杯" はそのまま保持
-        console.log(`  開催地名がレース名の一部として保持: "${cleaned}"`);
-    } else if (cleaned.includes(venue + ' ') || cleaned.includes(' ' + venue)) {
-        // 開催地名が単独で含まれる場合は除去
-        cleaned = cleaned.replace(new RegExp(`\\b${venue}\\b`, 'g'), '')
-            .replace(/\s+/g, ' ')
-            .trim();
-    }
-
-    return cleaned;
-}
-
-function extractRaceNameKeywords(summary, venue) {
-    // サマリーからレース名らしい部分を抽出
-    const keywords = [
-        'ステークス', '記念', 'カップ', '賞', '杯', 'ハンデキャップ',
-        'クラシック', 'グランプリ', 'プレート', 'タイトル'
-    ];
-
-    // 単語に分割
-    const words = summary.split(/\s+/);
-
-    // キーワードを含む単語を探す
-    for (const word of words) {
-        // 開催地名はスキップ
-        if (word.includes(venue) || word === '競馬' || word === '競馬場') {
-            continue;
-        }
-
-        // キーワードを含むかチェック
-        for (const keyword of keywords) {
-            if (word.includes(keyword)) {
-                // 括弧内のグレード表記を除去
-                let cleaned = word.replace(/\(G[Ⅰ-Ⅲ1-3]\)/g, '');
-                cleaned = cleaned.replace(/\(.*\)/g, '');
-                console.log(`  キーワード抽出: "${cleaned}"`);
-                return cleaned;
-            }
-        }
-    }
-
-    // キーワードが見つからない場合は最後の意味ありそうな単語
-    for (let i = words.length - 1; i >= 0; i--) {
-        const word = words[i];
-        if (word.length > 1 &&
-            !word.includes(venue) &&
-            !/^G[Ⅰ-Ⅲ1-3]$/.test(word) &&
-            word !== '競馬' &&
-            word !== '競馬場') {
-
-            const cleaned = word.replace(/\(.*\)/g, '');
-            console.log(`  最後の単語抽出: "${cleaned}"`);
-            return cleaned;
-        }
-    }
-
-    console.log(`  完全フォールバック: "${summary}"`);
-    return summary;
-}
 
 function parseYmd(dateStr) {
     // YYYYMMDD形式をDateオブジェクトに変換
