@@ -73,18 +73,13 @@ async function getGradeRacesForDateFromJraJson(date) {
 }
 
 async function getWeekendGradeRacesFromJraJson(base = new Date()) {
-    const day = base.getDay();
-    const sat = new Date(base);
-    sat.setDate(base.getDate() + ((6 - day + 7) % 7));
-    const sun = new Date(sat);
-    sun.setDate(sat.getDate() + 1);
+    const { sat, sun } = getThisWeekendDates(base); // ← ここに寄せる（0:00固定も込み）
 
     const [satGR, sunGR] = await Promise.all([
         getGradeRacesForDateFromJraJson(sat),
         getGradeRacesForDateFromJraJson(sun),
     ]);
 
-    // 同じ重賞が重複しないように軽くユニーク化
     const key = (x) => `${x.venue}|${x.grade}|${x.name}|${x.date}`;
     const map = new Map();
     [...satGR, ...sunGR].forEach(x => map.set(key(x), x));
@@ -94,20 +89,35 @@ async function getWeekendGradeRacesFromJraJson(base = new Date()) {
 function getNextWeekendDates(base = new Date()) {
     const day = base.getDay(); // 0=Sun
     const sat = new Date(base);
-    sat.setDate(base.getDate() + ((6 - day + 7) % 7));
+    sat.setDate(base.getDate() + (6 - day));
     const sun = new Date(sat);
     sun.setDate(sat.getDate() + 1);
     return { sat, sun };
 }
 
+function getThisWeekendDates(base = new Date()) {
+    const day = base.getDay(); // 0=Sun..6=Sat
+    const sat = new Date(base);
+
+    // 日曜なら「昨日(土曜)」、それ以外は「今週土曜」
+    sat.setDate(base.getDate() + (day === 0 ? -1 : (6 - day)));
+    sat.setHours(0, 0, 0, 0);
+
+    const sun = new Date(sat);
+    sun.setDate(sat.getDate() + 1);
+    sun.setHours(0, 0, 0, 0);
+
+    return { sat, sun };
+}
+
 function getSelectedDate() {
-    const { sat, sun } = getNextWeekendDates(new Date());
+    const { sat, sun } = getThisWeekendDates(new Date());
     const v = document.querySelector('input[name="raceDay"]:checked')?.value || "sat";
     return v === "sun" ? sun : sat;
 }
 
 function getMainRacePivotDate(now = new Date()) {
-    const { sat, sun } = getNextWeekendDates(now); // sat/sun は 0:00 で返ってくる :contentReference[oaicite:2]{index=2}
+    const { sat, sun } = getThisWeekendDates(now); // sat/sun は 0:00 で返ってくる :contentReference[oaicite:2]{index=2}
 
     // 土曜 16:00 を締切にする
     const satCutoff = new Date(sat);
@@ -134,13 +144,8 @@ async function renderWeekendGradeRaces() {
         list.map(x => `${x.venue} ${x.grade} ${x.name}`).join(" / ");
 }
 
-// 週末表示用：土日を合算（片方だけ出る変則対策）
 async function getWeekendVenuesFromJraJson(base = new Date()) {
-    const day = base.getDay(); // 0=Sun..6=Sat
-    const sat = new Date(base);
-    sat.setDate(base.getDate() + ((6 - day + 7) % 7));
-    const sun = new Date(sat);
-    sun.setDate(sat.getDate() + 1);
+    const { sat, sun } = getThisWeekendDates(base);
 
     const [vSat, vSun] = await Promise.all([
         getVenuesForDateFromJraJson(sat),
