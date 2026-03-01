@@ -117,14 +117,19 @@ function getSelectedDate() {
 }
 
 function getMainRacePivotDate(now = new Date()) {
-    const { sat, sun } = getThisWeekendDates(now); // sat/sun は 0:00 で返ってくる :contentReference[oaicite:2]{index=2}
+    const { sat, sun } = getThisWeekendDates(now);
 
-    // 土曜 16:00 を締切にする
     const satCutoff = new Date(sat);
     satCutoff.setHours(16, 0, 0, 0);
 
-    // まだ土曜16:00より前なら土曜、以降は日曜
-    return now.getTime() < satCutoff.getTime() ? sat : sun;
+    const sunCutoff = new Date(sun);
+    sunCutoff.setHours(16, 0, 0, 0);
+
+    if (now < satCutoff) return sat;   // 土曜メイン
+    if (now < sunCutoff) return sun;   // 日曜メイン
+
+    // 日曜終了後 → 次週土曜
+    return addDays(sat, 7);
 }
 
 
