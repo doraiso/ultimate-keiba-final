@@ -250,19 +250,18 @@ async function initVenueSelector() {
     const selector = document.getElementById('place-selector');
     const today = new Date();
 
-    // まず venues を確定させる（JRA月別JSON → ICS → 月別）
+    // まず venues を確定させる
     let venues;
     try {
-        venues = await getWeekendVenuesFromJraJson(today); // ← これだけにする
-        if (!venues || venues.length === 0) throw new Error("次の土日の開催地が0件");
-    } catch (e1) {
-        console.log('開催地JSON取得失敗。ICSにフォールバック:', e1);
-        try {
-            venues = await getWeekendVenuesFromJraJson(today); // ← これだけにする
-        } catch (e2) {
-            console.log('開催地ICS取得失敗。月別にフォールバック:', e2);
-            venues = getCurrentMonthVenues();
-        }
+        venues = await getWeekendVenuesFromJraJson(today);
+    } catch (err) {
+        console.error("開催地取得エラー:", err);
+        throw err; // 上位で扱う
+    }
+
+    if (!Array.isArray(venues) || venues.length === 0) {
+        selector.innerHTML = '<option value="">開催地が取得できませんでした</option>';
+        return;
     }
 
     const month = today.getMonth() + 1;
@@ -277,12 +276,6 @@ async function initVenueSelector() {
     });
 
     selector.innerHTML = options;
-
-    // 初期選択 + レース更新
-    // if (venues.length > 0) {
-    //     selector.value = venues[0];
-    //     setTimeout(() => updateRaceList(venues[0]), 0);
-    // }
 
     selector.onchange = function () {
         const selectedVenue = this.value;
