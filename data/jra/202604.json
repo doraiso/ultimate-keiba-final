@@ -24,7 +24,9 @@
               }
             ],
             "option":[
-              
+              {
+                "local":true
+              }
             ]
           }
         ]
@@ -57,7 +59,9 @@
               }
             ],
             "option":[
-              
+              {
+                "local":true
+              }
             ]
           }
         ]
@@ -93,7 +97,9 @@
               }
             ],
             "option":[
-              
+              {
+                "local":true
+              }
             ]
           }
         ]
@@ -123,7 +129,9 @@
               }
             ],
             "option":[
-              
+              {
+                "local":true
+              }
             ]
           }
         ]
@@ -159,7 +167,9 @@
               }
             ],
             "option":[
-              
+              {
+                "local":true
+              }
             ]
           }
         ]
@@ -195,7 +205,9 @@
               }
             ],
             "option":[
-              
+              {
+                "local":true
+              }
             ]
           }
         ]
@@ -226,6 +238,7 @@
             ],
             "option":[
               {
+                "local":true,
                 "free-pass":"東京",
                 "free-pass_link":"/facilities/freepass/2026.html"
               }
@@ -265,6 +278,7 @@
             ],
             "option":[
               {
+                "local":true,
                 "free-pass":"福島",
                 "free-pass_link":"/facilities/freepass/2026.html"
               }
@@ -279,7 +293,8 @@
           {
             "option":[
               {
-                "day-color":"red"
+                "day-color":"red",
+                "local":true
               }
             ],
             "race":[
@@ -317,6 +332,7 @@
           {
             "option":[
               {
+                "local":true,
                 "g1-waku":true
               }
             ],
@@ -336,6 +352,7 @@
           {
             "option":[
               {
+                "local":true,
                 "g1-waku":true
               }
             ],
@@ -355,7 +372,141 @@
           {
             "option":[
               {
+                "local":true,
                 "g1-waku":true
+              }
+            ],
+            "race":[
+              
+            ],
+            "gradeRace":[
+              
+            ]
+          }
+        ]
+      },
+      {
+        "date":"1",
+        "day":"水",
+        "info":[
+          {
+            "option":[
+              {
+                "local":true
+              }
+            ],
+            "race":[
+              
+            ],
+            "gradeRace":[
+              
+            ]
+          }
+        ]
+      },
+      {
+        "date":"2",
+        "day":"木",
+        "info":[
+          {
+            "option":[
+              {
+                "local":true
+              }
+            ],
+            "race":[
+              
+            ],
+            "gradeRace":[
+              
+            ]
+          }
+        ]
+      },
+      {
+        "date":"7",
+        "day":"火",
+        "info":[
+          {
+            "option":[
+              {
+                "local":true
+              }
+            ],
+            "race":[
+              
+            ],
+            "gradeRace":[
+              
+            ]
+          }
+        ]
+      },
+      {
+        "date":"8",
+        "day":"水",
+        "info":[
+          {
+            "option":[
+              {
+                "local":true
+              }
+            ],
+            "race":[
+              
+            ],
+            "gradeRace":[
+              
+            ]
+          }
+        ]
+      },
+      {
+        "date":"14",
+        "day":"火",
+        "info":[
+          {
+            "option":[
+              {
+                "local":true
+              }
+            ],
+            "race":[
+              
+            ],
+            "gradeRace":[
+              
+            ]
+          }
+        ]
+      },
+      {
+        "date":"15",
+        "day":"水",
+        "info":[
+          {
+            "option":[
+              {
+                "local":true
+              }
+            ],
+            "race":[
+              
+            ],
+            "gradeRace":[
+              
+            ]
+          }
+        ]
+      },
+      {
+        "date":"28",
+        "day":"火",
+        "info":[
+          {
+            "option":[
+              {
+                "local":true
               }
             ],
             "race":[
