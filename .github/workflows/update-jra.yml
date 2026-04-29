@@ -1,17 +1,13 @@
-name: Update JRA Calendar JSON
+name: update-jra
 
 on:
   schedule:
-    # 毎日 03:20 JST（= 前日 18:20 UTC）
-    - cron: "20 18 * * *"
+    - cron: '20 18 * * *'   # JST 03:20
   workflow_dispatch:
 
 permissions:
   contents: write
-
-concurrency:
-  group: update-jra-calendar
-  cancel-in-progress: true
+  actions: write   # ← これ追加
 
 jobs:
   update:
@@ -21,32 +17,31 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Fetch this month and next month JSON
-        shell: bash
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Generate JRA JSON
         run: |
-          set -euo pipefail
-          mkdir -p data/jra
+          node scripts/generate-jra-json.js
 
-          # ActionsはUTCになりがちなので、JST基準で今月/来月を計算
-          YM_THIS=$(date -u -d "+9 hours" +%Y%m)
-          YM_NEXT=$(date -u -d "+9 hours +1 month" +%Y%m)
-
-          echo "YM_THIS=$YM_THIS"
-          echo "YM_NEXT=$YM_NEXT"
-
-          curl -fsSL "https://www.jra.go.jp/keiba/common/calendar/json/${YM_THIS}.json" -o "data/jra/${YM_THIS}.json"
-          curl -fsSL "https://www.jra.go.jp/keiba/common/calendar/json/${YM_NEXT}.json" -o "data/jra/${YM_NEXT}.json"
-
-      - name: Commit & push if changed
-        shell: bash
+      - name: Commit & Push
         run: |
-          set -euo pipefail
-          if git status --porcelain | grep -q .; then
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add data/jra/*.json
-            git commit -m "chore: update JRA calendar JSON"
-            git push
-          else
-            echo "No changes to commit."
-          fi
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add data/jra/*.json
+          git commit -m "update JRA JSON" || echo "No changes"
+          git push
+
+      # 👇 ここが今回の本体
+      - name: Trigger Pages deploy
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'static.yml',
+              ref: 'main'
+            });
