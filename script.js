@@ -305,9 +305,15 @@ async function getMainRaceInfoForVenue(venue, pivotDate = new Date()) {
     const races = await getWeekendGradeRacesFromJraJson(pivotDate);
     const list = races.filter(r => r.venue === venue);
 
-    if (list.length === 0) {
-        return { name: "メインレース", grade: "", date: "", daysUntil: 0 };
-    }
+if (list.length === 0) {
+    return {
+        name: "メインレース",
+        grade: "",
+        date: toYmdJst(pivotDate),
+        daysUntil: calculateDaysUntil(toYmdJst(pivotDate)),
+        isFallbackMain: true,
+    };
+}
 
     const preferred = toYmdJst(pivotDate);
 
