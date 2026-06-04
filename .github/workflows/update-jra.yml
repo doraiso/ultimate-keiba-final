@@ -7,7 +7,7 @@ on:
 
 permissions:
   contents: write
-  actions: write   # ← これ追加
+  actions: write
 
 jobs:
   update:
@@ -17,24 +17,35 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Generate JRA JSON
+      - name: Fetch this month and next month JSON
+        shell: bash
         run: |
-          node scripts/generate-jra-json.js
+          set -euo pipefail
+          mkdir -p data/jra
+
+          YM_THIS=$(date -u -d "+9 hours" +%Y%m)
+          YM_NEXT=$(date -u -d "+9 hours +1 month" +%Y%m)
+
+          echo "YM_THIS=$YM_THIS"
+          echo "YM_NEXT=$YM_NEXT"
+
+          curl -fsSL "https://www.jra.go.jp/keiba/common/calendar/json/${YM_THIS}.json" -o "data/jra/${YM_THIS}.json"
+          curl -fsSL "https://www.jra.go.jp/keiba/common/calendar/json/${YM_NEXT}.json" -o "data/jra/${YM_NEXT}.json"
 
       - name: Commit & Push
+        shell: bash
         run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git add data/jra/*.json
-          git commit -m "update JRA JSON" || echo "No changes"
-          git push
+          set -euo pipefail
+          if git status --porcelain | grep -q .; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add data/jra/*.json
+            git commit -m "update JRA JSON"
+            git push
+          else
+            echo "No changes to commit."
+          fi
 
-      # 👇 ここが今回の本体
       - name: Trigger Pages deploy
         uses: actions/github-script@v7
         with:
