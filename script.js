@@ -24,6 +24,192 @@ function venueFromRaceName(name) {
     return tail.replace(/[0-9０-９]/g, "").replace(/日/g, "").trim();
 }
 
+const VENUE_MONTH_WEIGHT_PATTERNS = {
+    "東京": {
+        1: "flat",
+        2: "middle",
+        3: "flat",
+        4: "middle",
+        5: "middle",
+        6: "middle",
+        7: "flat",
+        8: "flat",
+        9: "flat",
+        10: "middle",
+        11: "middle",
+        12: "flat",
+    },
+    "中山": {
+        1: "inner",
+        2: "inner",
+        3: "inner",
+        4: "inner",
+        5: "flat",
+        6: "flat",
+        7: "flat",
+        8: "flat",
+        9: "inner",
+        10: "flat",
+        11: "flat",
+        12: "inner",
+    },
+    "京都": {
+        1: "inner",
+        2: "inner",
+        3: "flat",
+        4: "middle",
+        5: "middle",
+        6: "flat",
+        7: "flat",
+        8: "flat",
+        9: "flat",
+        10: "middle",
+        11: "middle",
+        12: "flat",
+    },
+    "阪神": {
+        1: "flat",
+        2: "inner",
+        3: "inner",
+        4: "inner",
+        5: "flat",
+        6: "middle",
+        7: "flat",
+        8: "flat",
+        9: "inner",
+        10: "flat",
+        11: "flat",
+        12: "inner",
+    },
+    "中京": {
+        1: "middle",
+        2: "flat",
+        3: "middle",
+        4: "flat",
+        5: "flat",
+        6: "flat",
+        7: "middle",
+        8: "middle",
+        9: "middle",
+        10: "flat",
+        11: "flat",
+        12: "middle",
+    },
+    "福島": {
+        1: "flat",
+        2: "flat",
+        3: "flat",
+        4: "inner",
+        5: "flat",
+        6: "inner",
+        7: "inner",
+        8: "flat",
+        9: "flat",
+        10: "inner",
+        11: "inner",
+        12: "flat",
+    },
+    "新潟": {
+        1: "flat",
+        2: "flat",
+        3: "flat",
+        4: "outer",
+        5: "outer",
+        6: "flat",
+        7: "outer",
+        8: "outer",
+        9: "outer",
+        10: "outer",
+        11: "flat",
+        12: "flat",
+    },
+    "小倉": {
+        1: "flat",
+        2: "inner",
+        3: "inner",
+        4: "flat",
+        5: "flat",
+        6: "inner",
+        7: "inner",
+        8: "inner",
+        9: "inner",
+        10: "flat",
+        11: "flat",
+        12: "flat",
+    },
+    "札幌": {
+        1: "flat",
+        2: "flat",
+        3: "flat",
+        4: "flat",
+        5: "flat",
+        6: "inner",
+        7: "inner",
+        8: "inner",
+        9: "inner",
+        10: "flat",
+        11: "flat",
+        12: "flat",
+    },
+    "函館": {
+        1: "flat",
+        2: "flat",
+        3: "flat",
+        4: "flat",
+        5: "flat",
+        6: "inner",
+        7: "inner",
+        8: "inner",
+        9: "flat",
+        10: "flat",
+        11: "flat",
+        12: "flat",
+    },
+};
+
+function getWeightPatternForVenueMonth(venue, month) {
+    return VENUE_MONTH_WEIGHT_PATTERNS[venue]?.[Number(month)] ?? "flat";
+}
+
+function weightForRelativePosition(position, pattern) {
+    switch (pattern) {
+        case "inner":
+            return 1.6 - (position * 0.6);
+        case "outer":
+            return 1.0 + (position * 0.6);
+        case "middle":
+            return 1.0 + (1 - Math.abs(position - 0.5) * 2) * 0.7;
+        case "flat":
+        default:
+            return 1;
+    }
+}
+
+function buildHorseNumberWeights(total, pattern) {
+    if (total <= 1) return [{ number: 1, weight: 1 }];
+
+    return Array.from({ length: total }, (_, index) => {
+        const position = index / (total - 1);
+        return {
+            number: index + 1,
+            weight: weightForRelativePosition(position, pattern),
+        };
+    });
+}
+
+function drawWeightedHorseNumber(total, pattern) {
+    const weights = buildHorseNumberWeights(total, pattern);
+    const sum = weights.reduce((acc, item) => acc + item.weight, 0);
+    let cursor = Math.random() * sum;
+
+    for (const item of weights) {
+        cursor -= item.weight;
+        if (cursor <= 0) return item.number;
+    }
+
+    return weights[weights.length - 1].number;
+}
+
 async function getVenuesForDateFromJraJson(date) {
     const { yyyymm, d } = ymdJstParts(date);
 
@@ -419,6 +605,9 @@ function spin() {
     const place = document.getElementById('place-selector').value;
     const raceSelect = document.getElementById('race-selector');
     const race = raceSelect.value;
+    const selectedDate = getSelectedDate();
+    const month = selectedDate.getMonth() + 1;
+    const weightPattern = getWeightPatternForVenueMonth(place, month);
 
     if (!place || !race) {
         resetDisplay();
@@ -434,7 +623,7 @@ function spin() {
     resetDisplay();
 
     runProgressAnimation(() => {
-        showFinalResult(total, isMainRace, mainRaceName, grade);
+        showFinalResult(total, isMainRace, mainRaceName, grade, weightPattern);
     });
 }
 
@@ -515,13 +704,13 @@ function runProgressAnimation(callback) {
     runStep();
 }
 
-function showFinalResult(total, isMainRace, mainRaceName, grade = "G?") {
+function showFinalResult(total, isMainRace, mainRaceName, grade = "G?", weightPattern = "flat") {
     const res = document.getElementById('result');
     const sText = document.getElementById('status-text');
     const glow = document.querySelector('.result-glow');
 
     setTimeout(() => {
-        const luckyNumber = Math.floor(Math.random() * total) + 1;
+        const luckyNumber = drawWeightedHorseNumber(total, weightPattern);
         res.innerText = luckyNumber;
 
         // 見た目はCSSクラスに統一
