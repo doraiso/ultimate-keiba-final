@@ -25,7 +25,9 @@
             ],
             "option":[
               {
-                "local":true
+                "local":true,
+                "free-pass":"阪神",
+                "free-pass_link":"/facilities/freepass/2026.html"
               }
             ]
           }
@@ -54,7 +56,9 @@
             ],
             "option":[
               {
-                "local":true
+                "local":true,
+                "free-pass":"中山・阪神",
+                "free-pass_link":"/facilities/freepass/2026.html"
               }
             ]
           }
