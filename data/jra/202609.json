@@ -269,9 +269,6 @@
           {
             "race":[
               {
-                "name":"4回中山"
-              },
-              {
                 "name":"4回阪神"
               }
             ],
@@ -279,7 +276,7 @@
               {
                 "name":"神戸新聞杯",
                 "detail":"神戸新聞杯",
-                "pos":"2",
+                "pos":"1",
                 "grade":"G2"
               }
             ],
@@ -287,8 +284,11 @@
               {
                 "day-color":"red",
                 "local":true,
-                "free-pass":"中山・阪神",
-                "free-pass_link":"/facilities/freepass/2026.html"
+                "free-pass":"阪神",
+                "free-pass_link":"/facilities/freepass/2026.html",
+                "news-title":"中山競馬開催を中止",
+                "news":"/news/202609/092003.html",
+                "kaisai":"B,C"
               }
             ]
           }
@@ -296,17 +296,21 @@
       },
       {
         "date":"22",
-        "day":"火",
+        "day":"休日・火曜",
         "info":[
           {
+            "race":[
+              {
+                "name":"4回中山"
+              }
+            ],
             "option":[
               {
                 "day-color":"red",
-                "local":true
+                "local":true,
+                "news-title":"中山代替競馬を開催",
+                "news":"/news/202609/092003.html"
               }
-            ],
-            "race":[
-              
             ],
             "gradeRace":[
               
