@@ -308,6 +308,8 @@
               {
                 "day-color":"red",
                 "local":true,
+                "free-pass":"中山",
+                "free-pass_link":"/facilities/freepass/2026.html",
                 "news-title":"中山代替競馬を開催",
                 "news":"/news/202609/092003.html"
               }
